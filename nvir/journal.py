@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from . import events, payload
+from .identity import Identity
 from .config import REPLAY_GRACE_SECONDS
 from .log import logger
 
@@ -25,11 +26,16 @@ class Journal:
             seconds=REPLAY_GRACE_SECONDS
         )
         self._owned_carriers = set()
+        self._identity = Identity()
         self._last_result = ""
 
     @property
     def last_result(self) -> str:
         return self._last_result
+
+    def forget_identity(self) -> None:
+        """A new token deserves a fresh handshake, not a session's worth of wait."""
+        self._identity.forget()
 
     def on_entry(
         self,
@@ -54,6 +60,12 @@ class Journal:
             carrier_id = entry.get("CarrierID")
             if carrier_id:
                 self._owned_carriers.add(int(carrier_id))
+
+        # Also before the guard, and for the same reason: Commander and LoadGame
+        # arrive in the login replay, and they are the only events that carry an
+        # FID. Dropping them as history would leave every member unverified
+        # whenever EDMC started after the game.
+        self._handshake(entry, state)
 
         if self._is_replay(entry):
             return
@@ -84,6 +96,41 @@ class Journal:
                 continue
             logger.info("Queued %s (%s) for %s", event_name, built["category"], cmdr)
             self._sender.submit(built, on_result=self._record)
+
+    def _handshake(self, entry: dict, state: dict) -> None:
+        """
+        Sends the identity payload, if this entry changed what we know.
+
+        Not gated on any category: the handshake is who the commander is, not
+        something they broadcast, and a member who shares nothing still wants
+        their profile to say their own name.
+        """
+        proposed = self._identity.observe(entry, state)
+        if proposed is None:
+            return
+
+        logger.info("Queued identity for %s", proposed.get("commanderName"))
+        self._sender.submit(
+            proposed,
+            on_result=lambda result, sent=proposed: self._identity_result(sent, result),
+            kind="identity",
+        )
+
+    def _identity_result(self, sent: dict, result) -> None:
+        """
+        Files the handshake's outcome. Runs on the delivery thread.
+
+        A success is deliberately quiet — it is not something the member
+        did, and overwriting the panel with it would bury the result of the event
+        they were actually watching. A failure is not quiet: an FID another
+        profile has claimed needs an officer, and nobody would ever find that in
+        a log.
+        """
+        if result.ok:
+            self._identity.accept(sent)
+            return
+
+        self._record(result)
 
     def _record(self, result) -> None:
         self._last_result = result.detail

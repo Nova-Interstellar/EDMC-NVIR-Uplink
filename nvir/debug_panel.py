@@ -38,6 +38,9 @@ SHORT_ERRORS = {
     "suspended": "Uplink paused by NVIR.",
     "unavailable": "NVIR site unreachable.",
     "no_endpoint": "Dev mode: no endpoint set.",
+    # Identity. Neither stops the feed; both need something done.
+    "fid_taken": "Commander linked elsewhere. Ask an officer.",
+    "bad_payload": "Handshake refused. Update the plugin.",
 }
 
 FALLBACK_ERROR = "Uplink failed. Check settings."

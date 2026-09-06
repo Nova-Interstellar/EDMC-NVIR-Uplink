@@ -55,6 +55,12 @@ class Plugin:
         self.standing.clear()
         self.last_error = None
 
+        # The site keys identity off the token's profile, so a new token means
+        # the handshake has to happen again. Without this it would wait for the
+        # next game session, and the member would sit unverified in between.
+        if self.journal is not None:
+            self.journal.forget_identity()
+
         if self.panel is not None:
             self.panel.clear_error()
 

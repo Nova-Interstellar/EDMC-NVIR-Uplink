@@ -18,7 +18,13 @@ try:
 except ImportError:  # pragma: no cover - EDMC ships requests
     REQUESTS_AVAILABLE = False
 
-from .config import API_EVENTS_PATH, HTTP_TIMEOUT, PLUGIN_VERSION, USER_AGENT
+from .config import (
+    API_EVENTS_PATH,
+    API_IDENTITY_PATH,
+    HTTP_TIMEOUT,
+    PLUGIN_VERSION,
+    USER_AGENT,
+)
 
 
 @dataclass
@@ -69,8 +75,14 @@ class ApiTransport:
             self._session = None
 
     def url(self) -> str:
+        return self._path(API_EVENTS_PATH)
+
+    def identity_url(self) -> str:
+        return self._path(API_IDENTITY_PATH)
+
+    def _path(self, path: str) -> str:
         base = self._settings.base_url().rstrip("/")
-        return base + API_EVENTS_PATH if base else ""
+        return base + path if base else ""
 
     def target(self) -> str:
         base = self._settings.base_url()
@@ -83,7 +95,43 @@ class ApiTransport:
         return bool(self._settings.api_token_value)
 
     def send(self, payload: dict) -> Delivery:
-        url = self.url()
+        result = self._authorised(self.url(), payload)
+
+        # A 2xx only means the API accepted the event. It still decides whether
+        # the event was worth posting, so report its verdict rather than ours.
+        if result.ok and result.body is not None:
+            verdict = "Posted" if result.body.get("posted") else "Accepted, not posted"
+            reason = str(result.body.get("reason") or "").strip()
+            result.detail = (
+                "{0} \N{EM DASH} {1}".format(verdict, reason) if reason else verdict
+            )
+
+        return result
+
+    def send_identity(self, payload: dict) -> Delivery:
+        """
+        The handshake, to its own endpoint on the same credential.
+
+        Kept apart from `send` because success means different things: an event
+        can be accepted and still go unposted for falling under a threshold,
+        while a recorded identity is simply recorded.
+        """
+        result = self._authorised(self.identity_url(), payload)
+
+        if result.ok:
+            name = ""
+            if result.body is not None:
+                name = str(result.body.get("commanderName") or "").strip()
+            result.detail = (
+                "Identity confirmed \N{EM DASH} {0}".format(name)
+                if name
+                else "Identity confirmed"
+            )
+
+        return result
+
+    def _authorised(self, url: str, payload: dict) -> Delivery:
+        """Everything both endpoints do the same way: endpoint, token, headers."""
         if not url:
             # Dev mode with an empty endpoint. Named rather than lumped in with
             # a generic failure, because the fix is one field away and nothing
@@ -98,7 +146,7 @@ class ApiTransport:
         if not token:
             return Delivery(False, detail="No squadron token configured")
 
-        result = self._post(
+        return self._post(
             url,
             payload,
             {
@@ -106,17 +154,6 @@ class ApiTransport:
                 "X-NVIR-Plugin": PLUGIN_VERSION,
             },
         )
-
-        # A 2xx only means the API accepted the event. It still decides whether
-        # the event was worth posting, so report its verdict rather than ours.
-        if result.ok and result.body is not None:
-            verdict = "Posted" if result.body.get("posted") else "Accepted, not posted"
-            reason = str(result.body.get("reason") or "").strip()
-            result.detail = (
-                "{0} \N{EM DASH} {1}".format(verdict, reason) if reason else verdict
-            )
-
-        return result
 
     def _post(self, url: str, body: dict, headers: dict) -> Delivery:
         if not REQUESTS_AVAILABLE:

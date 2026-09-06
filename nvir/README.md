@@ -11,6 +11,7 @@ event is worth posting and what it reads like.
 
 ```
 journal_entry (EDMC main thread)
+  ├─ identity.py   who this commander is — before the replay guard
   └─ journal.py    replay guard, category gate, carrier ownership
       └─ payload.py    normalise to the wire shape
           └─ sender.py     queue, hand to the delivery thread
@@ -30,6 +31,7 @@ Nothing blocks EDMC's main thread: `journal_entry` only enqueues.
 | `transport.py` | HTTP to nova-web, retries classified |
 | `sender.py` | Queue and delivery thread, rate-limit back-off |
 | `standing.py` | Whether the credential is still worth using |
+| `identity.py` | The handshake — FID, commander name, squadron standing |
 | `journal.py` | Replay guard, category gate, carrier ownership |
 | `settings.py` | Token and category choices |
 | `prefs.py` | Settings tab |
@@ -127,10 +129,12 @@ against the roster's carrier callsigns, since the plugin cannot be trusted.
 `config.py` holds them. Members never type a URL — an endpoint is squadron
 infrastructure, not a preference.
 
-- `API_BASE_URL` — where events go (`https://nvir.vercel.app`).
-- Channel routing is decided on the site, not here: `FEED_EVENT_CHANNELS` and
-  `PROMOTION_CHANNELS` in `src/data/internal/authored/squadron-feed.ts`, with
-  the webhook URLs themselves in Vercel Global Config.
+- `API_BASE_URL` — the site (`https://nvir.vercel.app`).
+- `API_EVENTS_PATH` — `/api/squadron/events`, the feed.
+- `API_IDENTITY_PATH` — `/api/uplink/identity`, the handshake.
+- Channel routing is decided on the site, not here, and officers change it on
+  `/admin/config` without a deploy. The plugin never holds a Discord webhook
+  URL, so a leaked EDMC config cannot post to a channel.
 `Settings.base_url()` resolves it:
 
 1. **The Dev Mode endpoint**, if both debug gates are on. It wins outright, so a
@@ -186,6 +190,67 @@ A token belongs to one deployment's database, so a token from production will
 not work against staging and the other way round. The settings page's profile
 link points at whichever endpoint is configured, which is the point of it.
 
+## The identity handshake
+
+`identity.py`. Separate from the feed and sent to `/api/uplink/identity` on the
+same token.
+
+It is the only way the site can say a member is *verified*. Discord has never
+heard of a Frontier id, Inara reports a name somebody typed into a form, and
+neither can show the two belong together. A journal can, so what the plugin
+sends is the FID, the commander name, and the squadron the game reports.
+
+**It is state, not a stream.** The name and FID arrive once at login and do not
+change again that session; squadron standing changes a few times a year. So
+`Identity` folds in only the events that carry those facts and offers a payload
+only when what it knows has actually moved — one request in a normal session.
+Every other journal line costs a dictionary lookup.
+
+| Journal event | Gives |
+| --- | --- |
+| `Commander`, `LoadGame` | `FID`, and the name (`Name` / `Commander`) |
+| `SquadronStartup`, `JoinedSquadron`, `SquadronCreated` | `SquadronName`, `CurrentRank` |
+| `SquadronPromotion`, `SquadronDemotion` | `SquadronName`, `NewRank` |
+| `LeftSquadron`, `KickedFromSquadron`, `DisbandedSquadron` | that there is no squadron |
+
+```json
+{ "v": 1, "fid": "F366647", "commanderName": "Peanut",
+  "squadron": { "name": "Nova Interstellar", "rank": 3 } }
+```
+
+Three things worth knowing about that shape:
+
+- **The squadron is named, not numbered.** No journal event carries a squadron
+  id — they all report `SquadronName` and nothing else — so the site matches the
+  name against its own, case-insensitively. The contract used to ask for an id
+  the plugin could never supply, which is why this half never worked; it was
+  corrected in place rather than versioned, since nothing had ever sent one.
+- **`squadron` absent, `null`, and present are three different things.** Absent
+  means "not observed" and the site leaves stored standing alone; `null` means
+  the commander left one. `SquadronStartup` only fires for a commander who is in
+  a squadron, so a plugin that has not seen it cannot tell "no squadron" from
+  "not looked yet", and guessing would empty the roster every time somebody
+  started EDMC before the game.
+- **No rank name.** The journal carries the rank number alone, so the site keeps
+  whatever name the Inara scrape found rather than blanking it.
+
+`Journal` runs this **before the replay guard**, like carrier ownership and for
+the same reason: `Commander` and `LoadGame` arrive in EDMC's login replay, and
+dropping them as history would leave every member unverified whenever EDMC
+started after the game.
+
+The FID is the key and the name is an attribute of it, so a commander who
+renames in-game keeps their profile. The site notices the change and renames
+their Discord nick to match — except for the guild owner and anyone whose
+highest role sits at or above the bot's, which Discord refuses outright. Those
+show as a mismatch on `/admin/members` instead.
+
+Two refusals are terminal but say nothing about the credential: `bad_payload`
+(a plugin the site no longer understands) and `fid_taken` (another profile has
+claimed this commander). `standing.py` deliberately does **not** latch on
+either — the token is fine and the feed has no problem — but they still surface
+on the panel, because nobody would find them in a log.
+
 ## Failure handling
 
 A refusal carries three things: `error` for the member to read, and `code` plus
@@ -196,6 +261,8 @@ and it is written for a web page.
 | --- | --- | --- |
 | 401 | `no_token`, `unknown_token`, `revoked` | yes |
 | 403 | `suspended` | yes |
+| 409 | `fid_taken` — identity only, does not latch | yes |
+| 422 | `bad_payload` — identity only, does not latch | yes |
 | 503 | `unavailable` | no |
 | 429, 5xx, timeout | *(none)* | no |
 

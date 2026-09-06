@@ -83,10 +83,17 @@ class Sender:
         return self._queue.qsize()
 
     def submit(
-        self, payload: dict, on_result: Optional[Callable[[Delivery], None]] = None
+        self,
+        payload: dict,
+        on_result: Optional[Callable[[Delivery], None]] = None,
+        kind: str = "event",
     ) -> None:
         """
         Queue a payload for delivery.
+
+        `kind` picks the endpoint: "event" for the feed, "identity" for the
+        handshake. Same queue and same credential, because ordering between them
+        matters — a handshake that overtook a rename would record the old name.
 
         `on_result` is invoked on the worker thread, so a Tk caller must
         marshal back with `widget.after(...)` before touching any widget.
@@ -97,7 +104,7 @@ class Sender:
             logger.debug("Not queueing %s: uplink is latched", payload.get("event", "?"))
             return
 
-        self._queue.put((payload, on_result))
+        self._queue.put((payload, on_result, kind))
 
     def _run(self) -> None:
         while not self._stop.is_set():
@@ -109,9 +116,9 @@ class Sender:
             if item is _SHUTDOWN:
                 break
 
-            payload, on_result = item
+            payload, on_result, kind = item
             try:
-                result = self._deliver(payload)
+                result = self._deliver(payload, kind)
             except Exception as err:  # never let the worker die on one event
                 logger.exception("Delivery raised")
                 result = Delivery(False, detail=str(err))
@@ -131,8 +138,8 @@ class Sender:
                 except Exception:
                     logger.exception("Delivery callback raised")
 
-    def _deliver(self, payload: dict) -> Delivery:
-        event_name = payload.get("event", "?")
+    def _deliver(self, payload: dict, kind: str = "event") -> Delivery:
+        event_name = payload.get("event", kind)
         result = Delivery(False, detail="Not attempted")
 
         # Refused before it is sent. The site has already said this credential
@@ -146,8 +153,14 @@ class Sender:
                 terminal=True,
             )
 
+        post = (
+            self._transport.send_identity
+            if kind == "identity"
+            else self._transport.send
+        )
+
         for attempt in range(1, MAX_ATTEMPTS + 1):
-            result = self._transport.send(payload)
+            result = post(payload)
 
             if result.ok:
                 logger.info("Sent %s (attempt %d)", event_name, attempt)

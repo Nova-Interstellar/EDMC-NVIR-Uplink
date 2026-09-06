@@ -14,7 +14,7 @@ PLUGIN_TITLE = "Nova Interstellar Uplink"
 # For the main EDMC window, where the row shares a narrow column with the
 # commander, ship and system fields.
 PLUGIN_TITLE_SHORT = "NVIR Uplink"
-PLUGIN_VERSION = "0.5.0"
+PLUGIN_VERSION = "0.6.0"
 
 # --- Repository --------------------------------------------------------------
 # One constant so a repo rename is a single edit. GitHub redirects the old path
@@ -35,7 +35,7 @@ VERSION_CHECK_TIMEOUT = 6
 
 # Shows the debug panel in the main EDMC window: pick an event, edit its
 # fields, send it through the real delivery path. Turn off for a release build.
-DEBUG = False
+DEBUG = True
 
 # --- Endpoints ---------------------------------------------------------------
 # Events go to the nova-web API, which checks them against the squadron roster,
@@ -46,6 +46,15 @@ DEBUG = False
 API_BASE_URL = "https://nvir.vercel.app"
 
 API_EVENTS_PATH = "/api/squadron/events"
+
+# The identity handshake: FID, commander name and squadron standing, taken from
+# a running game session. It is what makes a member "verified" on the site —
+# Discord does not know a commander's FID, Inara reports a name somebody typed,
+# and neither can prove the two belong together.
+#
+# Sent at most a handful of times a session, not per event: it is state, and the
+# plugin skips a resend that would say exactly what the last one did.
+API_IDENTITY_PATH = "/api/uplink/identity"
 
 # Where a member generates their token. Resolved against whichever site the
 # plugin is pointed at, so a development build links to that site's profile

@@ -29,6 +29,12 @@ BLOCKED = "blocked"
 _NEEDS_TOKEN_CODES = {"no_token", "unknown_token", "revoked"}
 _BLOCKED_CODES = {"suspended", "insufficient_scope"}
 
+# Terminal, but about the payload rather than the credential: the identity
+# endpoint refusing a malformed body, or an FID another profile already claims.
+# Both need a person, neither says anything is wrong with the token —
+# so latching on them would stop a feed that has no problem at all.
+_PAYLOAD_CODES = {"bad_payload", "fid_taken"}
+
 
 class Standing:
     """The uplink's own state, shared between the sender and the UI."""
@@ -78,6 +84,9 @@ class Standing:
                 return False
 
             code = getattr(result, "code", "") or ""
+
+            if code in _PAYLOAD_CODES:
+                return False
 
             if code in _NEEDS_TOKEN_CODES:
                 state = NEEDS_TOKEN

@@ -4,7 +4,9 @@ Squadron feed for **Nova Interstellar**. Posts your rank-ups and fleet carrier
 jumps to the squadron Discord, automatically, while you fly.
 
 Only the events listed below are ever read, and only the details each one needs
-are ever sent. Nothing else leaves your machine.
+are ever sent, plus one line about who you are — see
+[Verifying your commander](#verifying-your-commander). Nothing else leaves your
+machine.
 
 ## Install
 
@@ -71,6 +73,22 @@ Two details worth knowing:
   are ignored.
 - **Restarting EDMC will not re-post your day.** Only things that happen while
   the plugin is running are sent.
+
+## Verifying your commander
+
+Once per session the plugin tells the site your commander name, your Frontier id
+(`F366647` and the like), and which squadron the game says you are flying under.
+That is what makes you **verified**: Discord has never heard of your commander,
+and a name typed into a form proves nothing on its own.
+
+None of it is private. Anyone who drops into the same instance sees your
+commander name, and the squadron tag is on your ship. It is also not sent per
+event — once when the game loads, and again only if something changes.
+
+Rename your commander in-game and the site follows you: your profile keeps its
+history and your Discord nickname is updated to match. The bot cannot rename the
+server owner, or anyone whose highest role sits at or above its own, so those are
+flagged for an officer to change by hand.
 
 ## When something is wrong
 
