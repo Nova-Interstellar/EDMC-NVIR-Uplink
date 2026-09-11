@@ -93,27 +93,6 @@ class PreferencesUI:
         ).grid(row=row, column=0, columnspan=2, sticky=tk.W, **PAD)
         row += 1
 
-        nb.Checkbutton(
-            frame,
-            text="Contribute to the NVIR Hall of Fame",
-            variable=self._settings.hall_of_fame,
-        ).grid(row=row, column=0, columnspan=2, sticky=tk.W, **PAD)
-        row += 1
-
-        # Said here rather than left to be discovered. This one is on unless you
-        # turn it off, and what NVIR already holds is removed from the profile
-        # page, not from here.
-        nb.Label(
-            frame,
-            text=(
-                "Sends your in-game statistics totals for the squadron leaderboards. "
-                "Manage or delete what NVIR holds on your profile."
-            ),
-            wraplength=420,
-            justify=tk.LEFT,
-        ).grid(row=row, column=0, columnspan=2, sticky=tk.W, **PAD)
-        row += 1
-
         row = self._rule(frame, row)
         row = self._sharing_section(frame, row)
 

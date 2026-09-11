@@ -18,7 +18,6 @@ from .config import (
     KEY_DEBUG_MODE,
     KEY_DEV_API_TOKEN,
     KEY_DEV_API_URL,
-    KEY_HALL_OF_FAME,
     KEY_STEALTH,
     LEGACY_DEV_URL_KEY,
     PROFILE_PATH,
@@ -35,7 +34,6 @@ class Settings:
     def __init__(self):
         self.api_token = tk.StringVar()
         self.stealth = tk.BooleanVar()
-        self.hall_of_fame = tk.BooleanVar()
 
         # Development only; ignored unless DEBUG is on in config.py.
         self.debug_mode = tk.BooleanVar()
@@ -61,10 +59,6 @@ class Settings:
 
         self.api_token.set(config.get_str(KEY_API_TOKEN, default=""))
         self.stealth.set(config.get_bool(KEY_STEALTH, default=False))
-        # On by default. The boards are the point of collecting this, and an
-        # empty Hall of Fame teaches nobody anything — but it is one tick to
-        # leave, and the profile page removes what was already sent.
-        self.hall_of_fame.set(config.get_bool(KEY_HALL_OF_FAME, default=True))
 
         self.debug_mode.set(config.get_bool(KEY_DEBUG_MODE, default=False))
         self.dev_api_url.set(self._load_dev_url())
@@ -77,7 +71,6 @@ class Settings:
 
         config.set(KEY_API_TOKEN, self.api_token.get().strip())
         config.set(KEY_STEALTH, self.stealth.get())
-        config.set(KEY_HALL_OF_FAME, self.hall_of_fame.get())
 
         config.set(KEY_DEBUG_MODE, self.debug_mode.get())
         config.set(KEY_DEV_API_URL, self.dev_api_url.get().strip())
@@ -189,12 +182,15 @@ class Settings:
         """
         Whether lifetime statistics may be sent.
 
-        Stealth wins. It says broadcast nothing, and a member who set it would
-        not expect one channel to keep talking.
+        Stealth and nothing else, the same rule the feed categories follow.
+
+        There used to be a checkbox here as well. It was the last per-feature
+        send switch left on this machine after the broadcast choices moved, and
+        it duplicated a decision the site already enforces: an opted-out member
+        is refused with a terminal code and has their stored totals deleted, so
+        a local switch could only ever disagree with the real one.
         """
-        if self.is_stealthed():
-            return False
-        return bool(self.hall_of_fame.get())
+        return not self.is_stealthed()
 
     def is_category_enabled(self, category: str) -> bool:
         """

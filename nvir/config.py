@@ -99,7 +99,6 @@ REPLAY_GRACE_SECONDS = 5
 
 KEY_API_TOKEN = "nvir_api_token"
 KEY_STEALTH = "nvir_stealth"
-KEY_HALL_OF_FAME = "nvir_hall_of_fame"
 # Retired: which channels broadcast moved to the member's NVIR profile, where
 # the site applies it on arrival. Kept only so the stored values can be cleaned
 # up on load; nothing reads them.
@@ -125,6 +124,10 @@ LEGACY_DEV_URL_KEY = "nvir_localhost_url"
 # stored under these keys is deleted on load, so no webhook URL or hand-typed
 # endpoint lingers in a member's EDMC config.
 RETIRED_KEYS = (
+    # Whether to contribute statistics. The site already refuses them for a
+    # member who has switched it off, and deletes what it holds, so a second
+    # switch here could only disagree with the first.
+    "nvir_hall_of_fame",
     # Per-channel broadcast choices, now on the profile page.
     "nvir_category_trade",
     "nvir_category_combat",
