@@ -33,10 +33,15 @@ class PreferencesUI:
         self._settings = settings
         self._checker = checker
         self._error = error
-        self._category_boxes = {}
         self._bold = None
-        self._dev_url_entry = None
         self._version_link = None
+        # Every widget _sync_enabled touches, declared here so it can run before
+        # build() has made them — which is how the last rewrite of this pane
+        # broke, with an AttributeError instead of a settings page.
+        self._dev_url_label = None
+        self._dev_url_entry = None
+        self._dev_token_label = None
+        self._dev_token_entry = None
 
     def build(self, parent) -> nb.Frame:
         frame = nb.Frame(parent)
@@ -110,7 +115,7 @@ class PreferencesUI:
         row += 1
 
         row = self._rule(frame, row)
-        row = self._broadcast_link(frame, row)
+        row = self._sharing_section(frame, row)
 
         if DEBUG:
             row = self._rule(frame, row)
@@ -143,33 +148,88 @@ class PreferencesUI:
 
         return row + 1
 
-    def _broadcast_link(self, frame, row: int) -> int:
+    def _sharing_section(self, frame, row: int) -> int:
         """
-        Where the per-channel toggles went.
+        Where everything this plugin publishes is decided.
 
-        They were six checkboxes here. The pane had no room to say what a
-        channel covers, and adding one meant shipping a release to every member
-        before anybody could pick it — so they live on the NVIR profile now, and
-        the site applies them when an event arrives.
+        The six broadcast checkboxes used to be here. They moved because this
+        pane cannot say what a channel covers, and because adding one meant
+        shipping a release before anybody could pick it. The site applies the
+        choice when an event arrives, so it takes effect immediately rather
+        than at the next game session.
 
-        Stealth Mode stays above: it has to work with the site unreachable, and
-        must not be something a server can switch back on.
+        The button deep-links to the section itself rather than the top of the
+        page, and to whichever deployment this build is pointed at — the same
+        rule the token link follows, for the same reason.
+
+        Stealth Mode stays above. It has to work with the site unreachable and
+        must not be something a server can switch back on, which is exactly
+        what makes it the one switch that cannot live on a web page.
         """
+        nb.Label(frame, text="What you share", font=self._heading_font()).grid(
+            row=row, column=0, columnspan=2, sticky=tk.W, **PAD
+        )
+        row += 1
+
         nb.Label(
             frame,
             text=(
-                "Choose which rank-ups and carrier jumps are announced on your "
-                "NVIR profile. Changes apply straight away."
+                "Which rank-ups and carrier jumps are announced, what NVIR holds "
+                "for the Hall of Fame, and how to delete it — all on your profile. "
+                "Changes apply straight away."
             ),
             wraplength=420,
             justify=tk.LEFT,
         ).grid(row=row, column=0, columnspan=2, sticky=tk.W, **PAD)
         row += 1
 
-        link = nb.Label(frame, text="Open your profile", foreground=LINK_COLOR, cursor="hand2")
-        link.grid(row=row, column=0, columnspan=2, sticky=tk.W, **PAD)
-        link.bind("<Button-1>", self._open_profile)
+        ttk.Button(frame, text="Open my profile", command=self._open_sharing).grid(
+            row=row, column=0, sticky=tk.W, **PAD
+        )
         return row + 1
+
+    def _debug_section(self, frame, row: int) -> int:
+        """
+        The switch, and the two things a development build needs with it.
+
+        Both fields are hidden rather than greyed out until the box is ticked:
+        an empty disabled box invites the question of what it would have been
+        for.
+
+        The token is separate from the squadron one on purpose. A token belongs
+        to one deployment's database, so pasting a staging token over a live one
+        is a quiet way to break your own uplink and not notice until a rank-up
+        goes missing.
+        """
+        nb.Checkbutton(
+            frame,
+            text="Enable Dev Mode",
+            variable=self._settings.debug_mode,
+            command=self._sync_enabled,
+        ).grid(row=row, column=0, columnspan=2, sticky=tk.W, **PAD)
+        row += 1
+
+        self._dev_url_label = nb.Label(frame, text="Dev endpoint")
+        self._dev_url_label.grid(row=row, column=0, sticky=tk.W, **PAD)
+        self._dev_url_entry = nb.EntryMenu(frame, textvariable=self._settings.dev_api_url)
+        self._dev_url_entry.grid(row=row, column=1, sticky=tk.EW, **PAD)
+        row += 1
+
+        self._dev_token_label = nb.Label(frame, text="Dev token")
+        self._dev_token_label.grid(row=row, column=0, sticky=tk.W, **PAD)
+        self._dev_token_entry = nb.EntryMenu(
+            frame, textvariable=self._settings.dev_api_token, show="\N{BULLET}"
+        )
+        self._dev_token_entry.grid(row=row, column=1, sticky=tk.EW, **PAD)
+        return row + 1
+
+    def _heading_font(self):
+        """Bold copy of the default label font, resolved once."""
+        if self._bold is None:
+            base = tkfont.nametofont("TkDefaultFont")
+            self._bold = tkfont.Font(font=base)
+            self._bold.configure(weight="bold")
+        return self._bold
 
     @staticmethod
     def _rule(frame, row: int) -> int:
@@ -182,6 +242,9 @@ class PreferencesUI:
 
     def _open_profile(self, _event=None) -> None:
         webbrowser.open(self._settings.profile_url())
+
+    def _open_sharing(self, _event=None) -> None:
+        webbrowser.open(self._settings.sharing_url())
 
     def _open_repository(self, _event=None) -> None:
         webbrowser.open(GITHUB_URL)
@@ -207,34 +270,34 @@ class PreferencesUI:
 
     def _sync_enabled(self) -> None:
         """
-        Stealth mode locks every broadcast toggle without clearing it, and the
-        endpoint field appears only once dev mode is on — hidden rather than
-        greyed out, since an empty disabled box invites the question of what it
-        would have been for.
-        """
-        state = tk.DISABLED if self._settings.is_stealthed() else tk.NORMAL
-        for box in self._category_boxes.values():
-            self._set_state(box, state)
+        The development fields appear only once dev mode is on — hidden rather
+        than greyed out, since an empty disabled box invites the question of
+        what it would have been for.
 
+        Stealth no longer disables anything here. The broadcast toggles it used
+        to lock live on the profile now, and it stops events on their way out
+        regardless of what any checkbox says.
+        """
         if not DEBUG or self._dev_url_entry is None:
             return
 
-        try:
-            if self._settings.debug_mode.get():
-                self._dev_url_entry.grid()
-            else:
-                self._dev_url_entry.grid_remove()
-        except tk.TclError:
-            pass
+        showing = bool(self._settings.debug_mode.get())
 
-
-
-    @staticmethod
-    def _set_state(widget, state) -> None:
-        try:
-            widget.configure(state=state)
-        except tk.TclError:  # widget already destroyed
-            pass
+        for widget in (
+            self._dev_url_label,
+            self._dev_url_entry,
+            self._dev_token_label,
+            self._dev_token_entry,
+        ):
+            if widget is None:
+                continue
+            try:
+                if showing:
+                    widget.grid()
+                else:
+                    widget.grid_remove()
+            except tk.TclError:
+                pass
 
 
 def error_frame(parent, message: str) -> nb.Frame:

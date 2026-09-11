@@ -70,6 +70,11 @@ API_STATS_PATH = "/api/uplink/stats"
 # there — tokens live in a database, and each deployment has its own.
 PROFILE_PATH = "/profile"
 
+# The section of that page holding the broadcast choices, the Hall of Fame
+# record and its delete. Deep-linked so the button lands on the thing it
+# promised rather than the top of the page.
+PROFILE_SHARING_PATH = "/profile#sharing"
+
 # Where a development build sends is typed in by whoever is developing, and
 # defaults to nothing. A shipped default would put one deployment's hostname in
 # the source of a repository that may go public, and it would be wrong for
@@ -104,6 +109,13 @@ LEGACY_CATEGORY_KEY = "nvir_category_{0}"
 # DEBUG = False ignores whatever these hold.
 KEY_DEBUG_MODE = "nvir_debug_mode"
 KEY_DEV_API_URL = "nvir_dev_api_url"
+
+# A token belongs to one deployment's database, so a development endpoint needs
+# its own. Kept apart from the squadron token rather than overwriting it: a
+# developer who ticks Dev Mode should not have to paste their real one back
+# afterwards, and pasting a staging token over a live one is a quiet way to
+# break your own uplink.
+KEY_DEV_API_TOKEN = "nvir_dev_api_token"
 
 # The endpoint used to live behind a second "use localhost" checkbox. Debug mode
 # now implies it, so the old value is carried across once and the key dropped.

@@ -96,7 +96,7 @@ class ApiTransport:
 
     def is_ready(self) -> bool:
         """The endpoint ships with the plugin; only the token is missing-able."""
-        return bool(self._settings.api_token_value)
+        return bool(self._settings.token_value())
 
     def send(self, payload: dict) -> Delivery:
         result = self._authorised(self.url(), payload)
@@ -167,7 +167,7 @@ class ApiTransport:
                 code="no_endpoint",
             )
 
-        token = self._settings.api_token_value
+        token = self._settings.token_value()
         if not token:
             return Delivery(False, detail="No squadron token configured")
 

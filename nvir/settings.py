@@ -16,11 +16,13 @@ from .config import (
     DEBUG,
     KEY_API_TOKEN,
     KEY_DEBUG_MODE,
+    KEY_DEV_API_TOKEN,
     KEY_DEV_API_URL,
     KEY_HALL_OF_FAME,
     KEY_STEALTH,
     LEGACY_DEV_URL_KEY,
     PROFILE_PATH,
+    PROFILE_SHARING_PATH,
     RETIRED_KEYS,
     squadron_url,
 )
@@ -38,12 +40,14 @@ class Settings:
         # Development only; ignored unless DEBUG is on in config.py.
         self.debug_mode = tk.BooleanVar()
         self.dev_api_url = tk.StringVar()
+        self.dev_api_token = tk.StringVar()
 
         # Plain copies for the delivery thread. Tk variables may only be read
         # from the thread running the main loop, and the sender is not it.
         self.api_token_value = ""
         self.debug_mode_value = False
         self.dev_api_url_value = ""
+        self.dev_api_token_value = ""
 
         # Set by the plugin. Fired only when the value really changes, so
         # saving the settings page for an unrelated toggle does not clear a
@@ -64,6 +68,7 @@ class Settings:
 
         self.debug_mode.set(config.get_bool(KEY_DEBUG_MODE, default=False))
         self.dev_api_url.set(self._load_dev_url())
+        self.dev_api_token.set(config.get_str(KEY_DEV_API_TOKEN, default=""))
 
         self._snapshot()
 
@@ -76,6 +81,7 @@ class Settings:
 
         config.set(KEY_DEBUG_MODE, self.debug_mode.get())
         config.set(KEY_DEV_API_URL, self.dev_api_url.get().strip())
+        config.set(KEY_DEV_API_TOKEN, self.dev_api_token.get().strip())
 
         self._snapshot()
         logger.info("Preferences saved")
@@ -116,6 +122,7 @@ class Settings:
         self.api_token_value = self.api_token.get().strip()
         self.debug_mode_value = bool(self.debug_mode.get())
         self.dev_api_url_value = self.dev_api_url.get().strip()
+        self.dev_api_token_value = self.dev_api_token.get().strip()
 
     def is_debug(self) -> bool:
         """
@@ -155,9 +162,25 @@ class Settings:
             return self.dev_api_url_value
         return squadron_url()
 
+    def token_value(self) -> str:
+        """
+        The credential for wherever this build is pointed.
+
+        A token belongs to one deployment's database, so a dev endpoint needs
+        its own or every request answers "token not recognised" — which reads
+        as a broken token rather than the wrong one.
+        """
+        if self.is_dev_endpoint():
+            return self.dev_api_token_value
+        return self.api_token_value
+
     def profile_url(self) -> str:
         """Where to send someone to generate a token for *this* endpoint."""
         return self.base_url().rstrip("/") + PROFILE_PATH
+
+    def sharing_url(self) -> str:
+        """The part of the profile that decides what this plugin may publish."""
+        return self.base_url().rstrip("/") + PROFILE_SHARING_PATH
 
     def is_stealthed(self) -> bool:
         return bool(self.stealth.get())
