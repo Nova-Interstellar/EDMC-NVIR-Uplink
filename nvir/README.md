@@ -467,7 +467,7 @@ Ship a release build with `DEBUG = False`.
 
 ```json
 {
-  "v": 1, "plugin": "0.8.0",
+  "v": 1, "plugin": "0.9.0",
   "cmdr": "Elias Korben",
   "event": "Promotion",
   "category": "exploration",

@@ -14,7 +14,7 @@ PLUGIN_TITLE = "Nova Interstellar Uplink"
 # For the main EDMC window, where the row shares a narrow column with the
 # commander, ship and system fields.
 PLUGIN_TITLE_SHORT = "NVIR Uplink"
-PLUGIN_VERSION = "0.8.0"
+PLUGIN_VERSION = "0.9.0"
 
 # --- Repository --------------------------------------------------------------
 # One constant so a repo rename is a single edit. GitHub redirects the old path
