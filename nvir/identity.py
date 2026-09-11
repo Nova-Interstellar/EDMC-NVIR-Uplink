@@ -43,7 +43,29 @@ _SQUADRON_EVENTS = (
 
 _LEFT_EVENTS = ("LeftSquadron", "KickedFromSquadron", "DisbandedSquadron")
 
-WATCHED = _NAME_EVENTS + _SQUADRON_EVENTS + _LEFT_EVENTS
+# Pilot ranks. `Rank` carries the tier index per career, `Progress` the percent
+# into the next one; both fire in the login sequence and again on a rank-up.
+#
+# The percentage is the only reason this is here. Inara already publishes the
+# rank names, but nothing outside the journal knows a commander is 89% of the
+# way to Elite -- and that is the number /tools/rank-progress needs to say what
+# is left to earn.
+_RANK_EVENTS = ("Rank", "Progress")
+
+# The careers the journal names. Fixed rather than "whatever keys turned up", so
+# a future addition to the event cannot quietly widen what we transmit.
+RANK_CAREERS = (
+    "Combat",
+    "Trade",
+    "Explore",
+    "Soldier",
+    "Exobiologist",
+    "Empire",
+    "Federation",
+    "CQC",
+)
+
+WATCHED = _NAME_EVENTS + _SQUADRON_EVENTS + _LEFT_EVENTS + _RANK_EVENTS
 
 
 class Identity:
@@ -53,6 +75,11 @@ class Identity:
         self._fid = ""
         self._name = ""
         self._squadron = _UNSET
+        # career -> {"rank": int} and/or {"progress": int}, merged as the two
+        # events arrive. They are separate journal lines, so neither is complete
+        # on its own and the payload waits for nothing -- a rank with no
+        # percentage yet is still worth sending.
+        self._ranks: dict = {}
         self._sent: Optional[dict] = None
 
     def forget(self) -> None:
@@ -77,9 +104,10 @@ class Identity:
         if not self._fid and not self._name:
             return "not observed yet (no Commander or LoadGame this session)"
 
-        return "{0}, FID {1}, {2}".format(
+        return "{0}, FID {1}, {2} rank(s), {3}".format(
             self._name or "(no name)",
             "known" if self._fid else "MISSING",
+            len(self._ranks) or "no",
             "accepted by the site" if self._sent else "not yet accepted",
         )
 
@@ -128,6 +156,9 @@ class Identity:
             if name:
                 self._name = name
 
+        elif event in _RANK_EVENTS:
+            self._fold_ranks(event, entry)
+
         elif event in _LEFT_EVENTS:
             self._squadron = None
 
@@ -152,7 +183,36 @@ class Identity:
         if self._squadron is not _UNSET:
             payload["squadron"] = self._squadron
 
+        # Same rule. An empty dict would tell the site the commander has no
+        # ranks, which is not a thing the game can report.
+        if self._ranks:
+            payload["ranks"] = self._ranks
+
         return payload
+
+    def _fold_ranks(self, event: str, entry: dict) -> None:
+        """
+        Merges a `Rank` or `Progress` entry into what is known per career.
+
+        They are two journal lines carrying the same keys with different
+        meanings — the tier index and the percent into the next one — so each
+        contributes one field and neither waits for the other. A rank with no
+        percentage yet is still worth sending; the site treats a missing
+        `progress` as unknown rather than zero, which is a different claim.
+
+        Anything not an integer is dropped rather than passed on. The site
+        validates too, but sending a value we already know is wrong just moves
+        the refusal further from the thing that produced it.
+        """
+        field = "rank" if event == "Rank" else "progress"
+
+        for career in RANK_CAREERS:
+            value = entry.get(career)
+            if not isinstance(value, int) or isinstance(value, bool):
+                continue
+            if value < 0:
+                continue
+            self._ranks.setdefault(career, {})[field] = value
 
 
 def _rank(entry: dict) -> Optional[int]:
