@@ -9,6 +9,7 @@ from typing import Optional
 
 from . import events, payload
 from .identity import Identity
+from .statistics import Statistics
 from .config import REPLAY_GRACE_SECONDS
 from .log import logger
 
@@ -27,6 +28,7 @@ class Journal:
         )
         self._owned_carriers = set()
         self._identity = Identity()
+        self._statistics = Statistics()
         self._last_result = ""
 
     @property
@@ -36,6 +38,7 @@ class Journal:
     def forget_identity(self) -> None:
         """A new token deserves a fresh handshake, not a session's worth of wait."""
         self._identity.forget()
+        self._statistics.forget()
 
     def on_entry(
         self,
@@ -66,6 +69,7 @@ class Journal:
         # FID. Dropping them as history would leave every member unverified
         # whenever EDMC started after the game.
         self._handshake(entry, state)
+        self._contribute(entry)
 
         if self._is_replay(entry):
             return
@@ -115,6 +119,53 @@ class Journal:
             on_result=lambda result, sent=proposed: self._identity_result(sent, result),
             kind="identity",
         )
+
+    def _contribute(self, entry: dict) -> None:
+        """
+        Sends lifetime statistics for the Hall of Fame, when they have moved.
+
+        Ahead of the replay guard like the handshake, and for the same reason:
+        `Statistics` arrives in EDMC's login replay, so treating it as history
+        would mean a member only ever contributed when they alt-tabbed mid-game.
+
+        Gated on its own setting rather than on any broadcast category. This is
+        not something the commander did, it is what they have done, and the
+        squadron boards are a different question from the feed.
+        """
+        if not self._settings.contributes_to_hall_of_fame():
+            return
+
+        proposed = self._statistics.observe(entry)
+        if proposed is None:
+            return
+
+        logger.info("Queued statistics (%d sections)", len(proposed["statistics"]))
+        self._sender.submit(
+            proposed,
+            on_result=lambda result, sent=proposed: self._statistics_result(sent, result),
+            kind="statistics",
+        )
+
+    def _statistics_result(self, sent: dict, result) -> None:
+        """
+        Files the submission's outcome. Runs on the delivery thread.
+
+        Quiet on success, like the handshake: nobody asked for this to happen
+        just now, and saying so would bury the result of the event they were
+        actually watching.
+
+        A refusal stops the asking. `hall_of_fame_off` means the member deleted
+        their record from their profile, and repeating the request at every
+        login would be arguing with them.
+        """
+        if result.ok:
+            self._statistics.accept(sent)
+            return
+
+        if getattr(result, "code", "") == "hall_of_fame_off":
+            self._statistics.refuse()
+
+        self._record(result)
 
     def _identity_result(self, sent: dict, result) -> None:
         """

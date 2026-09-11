@@ -21,6 +21,7 @@ except ImportError:  # pragma: no cover - EDMC ships requests
 from .config import (
     API_EVENTS_PATH,
     API_IDENTITY_PATH,
+    API_STATS_PATH,
     HTTP_TIMEOUT,
     PLUGIN_VERSION,
     USER_AGENT,
@@ -80,6 +81,9 @@ class ApiTransport:
     def identity_url(self) -> str:
         return self._path(API_IDENTITY_PATH)
 
+    def stats_url(self) -> str:
+        return self._path(API_STATS_PATH)
+
     def _path(self, path: str) -> str:
         base = self._settings.base_url().rstrip("/")
         return base + path if base else ""
@@ -126,6 +130,27 @@ class ApiTransport:
                 "Identity confirmed \N{EM DASH} {0}".format(name)
                 if name
                 else "Identity confirmed"
+            )
+
+        return result
+
+    def send_statistics(self, payload: dict) -> Delivery:
+        """
+        Commander statistics, for the Hall of Fame.
+
+        Its own endpoint because it is neither an event nor an identity: the
+        site stores it whole and decides later which numbers become boards.
+        """
+        result = self._authorised(self.stats_url(), payload)
+
+        if result.ok:
+            sections = ""
+            if result.body is not None:
+                sections = str(result.body.get("sections") or "").strip()
+            result.detail = (
+                "Statistics stored \N{EM DASH} {0} sections".format(sections)
+                if sections
+                else "Statistics stored"
             )
 
         return result

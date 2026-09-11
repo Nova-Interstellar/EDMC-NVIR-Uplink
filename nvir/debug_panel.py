@@ -41,6 +41,7 @@ SHORT_ERRORS = {
     # Identity. Neither stops the feed; both need something done.
     "fid_taken": "Commander linked elsewhere. Ask an officer.",
     "bad_payload": "Handshake refused. Update the plugin.",
+    "hall_of_fame_off": "Hall of Fame off. Re-enable on your profile.",
 }
 
 FALLBACK_ERROR = "Uplink failed. Check settings."

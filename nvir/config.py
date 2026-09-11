@@ -14,7 +14,7 @@ PLUGIN_TITLE = "Nova Interstellar Uplink"
 # For the main EDMC window, where the row shares a narrow column with the
 # commander, ship and system fields.
 PLUGIN_TITLE_SHORT = "NVIR Uplink"
-PLUGIN_VERSION = "0.6.0"
+PLUGIN_VERSION = "0.7.0"
 
 # --- Repository --------------------------------------------------------------
 # One constant so a repo rename is a single edit. GitHub redirects the old path
@@ -56,6 +56,14 @@ API_EVENTS_PATH = "/api/squadron/events"
 # plugin skips a resend that would say exactly what the last one did.
 API_IDENTITY_PATH = "/api/uplink/identity"
 
+# Commander statistics, for the squadron Hall of Fame. One journal event holds
+# every number the boards rank, so this is the whole of it, sent when it moves.
+#
+# The site decides what is ranked and what is shown; the plugin's only question
+# is whether to send at all. That is why there is one setting here rather than a
+# checkbox per section — changing the boards must never need a plugin release.
+API_STATS_PATH = "/api/uplink/stats"
+
 # Where a member generates their token. Resolved against whichever site the
 # plugin is pointed at, so a development build links to that site's profile
 # rather than sending someone to production for a token that will not work
@@ -86,6 +94,7 @@ REPLAY_GRACE_SECONDS = 5
 
 KEY_API_TOKEN = "nvir_api_token"
 KEY_STEALTH = "nvir_stealth"
+KEY_HALL_OF_FAME = "nvir_hall_of_fame"
 KEY_CATEGORY = "nvir_category_{0}"
 
 # Debug-only, and only honoured while DEBUG is on: a build shipped with

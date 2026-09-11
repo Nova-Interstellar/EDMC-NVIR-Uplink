@@ -18,6 +18,7 @@ from .config import (
     KEY_CATEGORY,
     KEY_DEBUG_MODE,
     KEY_DEV_API_URL,
+    KEY_HALL_OF_FAME,
     KEY_STEALTH,
     LEGACY_DEV_URL_KEY,
     PROFILE_PATH,
@@ -33,6 +34,7 @@ class Settings:
     def __init__(self):
         self.api_token = tk.StringVar()
         self.stealth = tk.BooleanVar()
+        self.hall_of_fame = tk.BooleanVar()
         # One toggle per channel.
         self.categories = {key: tk.BooleanVar() for key in events.CATEGORIES}
 
@@ -58,6 +60,10 @@ class Settings:
 
         self.api_token.set(config.get_str(KEY_API_TOKEN, default=""))
         self.stealth.set(config.get_bool(KEY_STEALTH, default=False))
+        # On by default. The boards are the point of collecting this, and an
+        # empty Hall of Fame teaches nobody anything — but it is one tick to
+        # leave, and the profile page removes what was already sent.
+        self.hall_of_fame.set(config.get_bool(KEY_HALL_OF_FAME, default=True))
 
         for key, var in self.categories.items():
             var.set(config.get_bool(KEY_CATEGORY.format(key), default=True))
@@ -72,6 +78,7 @@ class Settings:
 
         config.set(KEY_API_TOKEN, self.api_token.get().strip())
         config.set(KEY_STEALTH, self.stealth.get())
+        config.set(KEY_HALL_OF_FAME, self.hall_of_fame.get())
 
         for key, var in self.categories.items():
             config.set(KEY_CATEGORY.format(key), var.get())
@@ -163,6 +170,17 @@ class Settings:
 
     def is_stealthed(self) -> bool:
         return bool(self.stealth.get())
+
+    def contributes_to_hall_of_fame(self) -> bool:
+        """
+        Whether lifetime statistics may be sent.
+
+        Stealth wins. It says broadcast nothing, and a member who set it would
+        not expect one channel to keep talking.
+        """
+        if self.is_stealthed():
+            return False
+        return bool(self.hall_of_fame.get())
 
     def is_category_enabled(self, category: str) -> bool:
         """Stealth mode overrides every individual choice without erasing it."""

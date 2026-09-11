@@ -92,8 +92,9 @@ class Sender:
         Queue a payload for delivery.
 
         `kind` picks the endpoint: "event" for the feed, "identity" for the
-        handshake. Same queue and same credential, because ordering between them
-        matters — a handshake that overtook a rename would record the old name.
+        handshake, "statistics" for the Hall of Fame. Same queue and same
+        credential, because ordering between them matters — a handshake that
+        overtook a rename would record the old name.
 
         `on_result` is invoked on the worker thread, so a Tk caller must
         marshal back with `widget.after(...)` before touching any widget.
@@ -153,11 +154,10 @@ class Sender:
                 terminal=True,
             )
 
-        post = (
-            self._transport.send_identity
-            if kind == "identity"
-            else self._transport.send
-        )
+        post = {
+            "identity": self._transport.send_identity,
+            "statistics": self._transport.send_statistics,
+        }.get(kind, self._transport.send)
 
         for attempt in range(1, MAX_ATTEMPTS + 1):
             result = post(payload)
