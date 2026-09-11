@@ -81,7 +81,18 @@ PROFILE_SHARING_PATH = "/profile#uplink"
 # everyone who is not the person who chose it.
 
 USER_AGENT = f"EDMC-NVIR/{PLUGIN_VERSION}"
-HTTP_TIMEOUT = 10
+
+# Generous on purpose. The site is a serverless deployment, so the first request
+# after an idle spell pays a cold start: measured at 6 seconds for the handshake
+# on a member's machine, against warm times of 1 to 2. Statistics does strictly
+# more work than that -- a larger body, a jsonb write, then a second write to
+# stamp the token -- and at 10 seconds it was timing out on the cold path while
+# the warm one was never in doubt.
+#
+# Nothing waits on this. Sends run on the delivery thread, so a slow request
+# costs a member nothing; a short timeout only converts a request that would
+# have worked into three that do not.
+HTTP_TIMEOUT = 30
 
 # Give up on an event after this many failed attempts.
 MAX_ATTEMPTS = 3
