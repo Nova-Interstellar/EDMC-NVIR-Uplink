@@ -8,6 +8,7 @@ on a member's machine, so a leaked EDMC config cannot post to the channel and
 an edited plugin cannot widen what reaches it.
 """
 
+import time
 from dataclasses import dataclass
 from typing import Optional
 
@@ -200,16 +201,26 @@ class ApiTransport:
         # what came back. No headers: one of them is the token.
         logger.debug("POST %s", url)
 
+        # Timed because HTTP_TIMEOUT is otherwise a guess. The site is
+        # serverless and its first request after an idle spell pays a cold
+        # start, so the only way to know what the budget should be is to have
+        # every report carry what the requests actually took.
+        started = time.monotonic()
+
         try:
             response = self._session.post(
                 url, json=body, headers=headers, timeout=HTTP_TIMEOUT
             )
         except Exception as err:  # network unreachable, DNS, TLS, timeout
-            logger.warning("POST %s did not complete: %s", url, err)
+            logger.warning(
+                "POST %s gave up after %.1fs: %s", url, time.monotonic() - started, err
+            )
             return Delivery(False, detail=str(err), retryable=True, retry_after=5.0)
 
         status = response.status_code
-        logger.debug("POST %s answered %s", url, status)
+        logger.debug(
+            "POST %s answered %s in %.1fs", url, status, time.monotonic() - started
+        )
 
         if 200 <= status < 300:
             decoded = None
