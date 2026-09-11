@@ -15,7 +15,6 @@ from . import events
 from .config import (
     DEBUG,
     KEY_API_TOKEN,
-    KEY_CATEGORY,
     KEY_DEBUG_MODE,
     KEY_DEV_API_URL,
     KEY_HALL_OF_FAME,
@@ -35,8 +34,6 @@ class Settings:
         self.api_token = tk.StringVar()
         self.stealth = tk.BooleanVar()
         self.hall_of_fame = tk.BooleanVar()
-        # One toggle per channel.
-        self.categories = {key: tk.BooleanVar() for key in events.CATEGORIES}
 
         # Development only; ignored unless DEBUG is on in config.py.
         self.debug_mode = tk.BooleanVar()
@@ -65,9 +62,6 @@ class Settings:
         # leave, and the profile page removes what was already sent.
         self.hall_of_fame.set(config.get_bool(KEY_HALL_OF_FAME, default=True))
 
-        for key, var in self.categories.items():
-            var.set(config.get_bool(KEY_CATEGORY.format(key), default=True))
-
         self.debug_mode.set(config.get_bool(KEY_DEBUG_MODE, default=False))
         self.dev_api_url.set(self._load_dev_url())
 
@@ -79,9 +73,6 @@ class Settings:
         config.set(KEY_API_TOKEN, self.api_token.get().strip())
         config.set(KEY_STEALTH, self.stealth.get())
         config.set(KEY_HALL_OF_FAME, self.hall_of_fame.get())
-
-        for key, var in self.categories.items():
-            config.set(KEY_CATEGORY.format(key), var.get())
 
         config.set(KEY_DEBUG_MODE, self.debug_mode.get())
         config.set(KEY_DEV_API_URL, self.dev_api_url.get().strip())
@@ -183,8 +174,19 @@ class Settings:
         return bool(self.hall_of_fame.get())
 
     def is_category_enabled(self, category: str) -> bool:
-        """Stealth mode overrides every individual choice without erasing it."""
-        if self.is_stealthed():
-            return False
-        var = self.categories.get(category)
-        return bool(var.get()) if var else False
+        """
+        Whether this category may be sent at all.
+
+        Only Stealth decides it here. Which categories a member wants announced
+        moved to their NVIR profile, where there is room to say what each one
+        covers and where changing the list never needs a plugin release.
+
+        The site enforces that choice on arrival rather than asking the plugin
+        to honour it. Two reasons: it takes effect the moment the box is
+        unticked instead of at the next game session, and a plugin on someone
+        else's machine can only ever be advised, never relied on.
+
+        Stealth stays because it is the one switch that must work with the site
+        unreachable, and must not be something a server can turn back on.
+        """
+        return not self.is_stealthed()

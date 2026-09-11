@@ -95,7 +95,10 @@ REPLAY_GRACE_SECONDS = 5
 KEY_API_TOKEN = "nvir_api_token"
 KEY_STEALTH = "nvir_stealth"
 KEY_HALL_OF_FAME = "nvir_hall_of_fame"
-KEY_CATEGORY = "nvir_category_{0}"
+# Retired: which channels broadcast moved to the member's NVIR profile, where
+# the site applies it on arrival. Kept only so the stored values can be cleaned
+# up on load; nothing reads them.
+LEGACY_CATEGORY_KEY = "nvir_category_{0}"
 
 # Debug-only, and only honoured while DEBUG is on: a build shipped with
 # DEBUG = False ignores whatever these hold.
@@ -110,6 +113,13 @@ LEGACY_DEV_URL_KEY = "nvir_localhost_url"
 # stored under these keys is deleted on load, so no webhook URL or hand-typed
 # endpoint lingers in a member's EDMC config.
 RETIRED_KEYS = (
+    # Per-channel broadcast choices, now on the profile page.
+    "nvir_category_trade",
+    "nvir_category_combat",
+    "nvir_category_exploration",
+    "nvir_category_exobiology",
+    "nvir_category_mercenary",
+    "nvir_category_carrier",
     "nvir_use_localhost",
     "nvir_webhook_url",
     "nvir_option_trade.sales",

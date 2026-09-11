@@ -110,7 +110,7 @@ class PreferencesUI:
         row += 1
 
         row = self._rule(frame, row)
-        row = self._broadcast_section(frame, row)
+        row = self._broadcast_link(frame, row)
 
         if DEBUG:
             row = self._rule(frame, row)
@@ -143,70 +143,33 @@ class PreferencesUI:
 
         return row + 1
 
-    def _broadcast_section(self, frame, row: int) -> int:
+    def _broadcast_link(self, frame, row: int) -> int:
         """
-        A titled block, then one checkbox per channel, two to a row.
+        Where the per-channel toggles went.
 
-        Each channel is a single toggle now: CQC rank-ups ride along with
-        combat, and there is nothing else beneath any of them. Adding a channel
-        is one entry in events.CATEGORIES, not a layout change.
+        They were six checkboxes here. The pane had no room to say what a
+        channel covers, and adding one meant shipping a release to every member
+        before anybody could pick it — so they live on the NVIR profile now, and
+        the site applies them when an event arrives.
+
+        Stealth Mode stays above: it has to work with the site unreachable, and
+        must not be something a server can switch back on.
         """
-        nb.Label(frame, text="Broadcast", font=self._heading_font()).grid(
-            row=row, column=0, columnspan=2, sticky=tk.W, **PAD
-        )
+        nb.Label(
+            frame,
+            text=(
+                "Choose which rank-ups and carrier jumps are announced on your "
+                "NVIR profile. Changes apply straight away."
+            ),
+            wraplength=420,
+            justify=tk.LEFT,
+        ).grid(row=row, column=0, columnspan=2, sticky=tk.W, **PAD)
         row += 1
 
-        grid = nb.Frame(frame)
-        grid.grid(row=row, column=0, columnspan=2, sticky=tk.EW, padx=26, pady=(2, 4))
-        grid.columnconfigure(0, weight=1, uniform="broadcast")
-        grid.columnconfigure(1, weight=1, uniform="broadcast")
-
-        for index, category in enumerate(events.CATEGORY_ORDER):
-            box = nb.Checkbutton(
-                grid,
-                text=events.label_of(category),
-                variable=self._settings.categories[category],
-            )
-            box.grid(
-                row=index // 2,
-                column=index % 2,
-                sticky=tk.W,
-                padx=(0, 12),
-                pady=1,
-            )
-            self._category_boxes[category] = box
-
+        link = nb.Label(frame, text="Open your profile", foreground=LINK_COLOR, cursor="hand2")
+        link.grid(row=row, column=0, columnspan=2, sticky=tk.W, **PAD)
+        link.bind("<Button-1>", self._open_profile)
         return row + 1
-
-    def _debug_section(self, frame, row: int) -> int:
-        """
-        One row: the switch, and where it sends.
-
-        No heading and no second checkbox. Dev mode already means "not
-        production", and the endpoint is the only thing left to say about it —
-        a section title above a single control is furniture.
-        """
-        nb.Checkbutton(
-            frame,
-            text="Enable Dev Mode",
-            variable=self._settings.debug_mode,
-            command=self._sync_enabled,
-        ).grid(row=row, column=0, sticky=tk.W, **PAD)
-
-        self._dev_url_entry = nb.EntryMenu(
-            frame, textvariable=self._settings.dev_api_url
-        )
-        self._dev_url_entry.grid(row=row, column=1, sticky=tk.EW, **PAD)
-
-        return row + 1
-
-    def _heading_font(self):
-        """Bold copy of the default label font, resolved once."""
-        if self._bold is None:
-            base = tkfont.nametofont("TkDefaultFont")
-            self._bold = tkfont.Font(font=base)
-            self._bold.configure(weight="bold")
-        return self._bold
 
     @staticmethod
     def _rule(frame, row: int) -> int:
