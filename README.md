@@ -1,12 +1,12 @@
 # EDMC-NVIR-Uplink
 
-Squadron feed for **Nova Interstellar**. Posts your rank-ups and fleet carrier
-jumps to the squadron Discord, automatically, while you fly.
+Squadron uplink for **Nova Interstellar**. It announces your rank-ups and fleet
+carrier jumps in the squadron Discord, marks you verified on the roster, and
+feeds your in-game totals to the squadron Hall of Fame — all while you fly.
 
-Only the events listed below are ever read, and only the details each one needs
-are ever sent, plus one line about who you are — see
-[Verifying your commander](#verifying-your-commander). Nothing else leaves your
-machine.
+It reads your game journal, the same file EDSM and Inara already read, and
+nothing else on your machine. What it is allowed to send is yours to choose, and
+lives on your NVIR profile.
 
 ## Install
 
@@ -40,16 +40,29 @@ Requires EDMC 6.x.
 
 | Setting | What it does |
 | --- | --- |
-| **Squadron member token** | Identifies you to the squadron site. Without it nothing is sent. Generate it on your NVIR profile — the link is on this page. |
-| **Stealth mode** | Broadcasts nothing at all. Your category choices are remembered, just switched off. |
-| **Broadcast** | Pick which kinds of moment you are happy to share. |
+| **Squadron Member Token** | Identifies you to the squadron site. Without it nothing is sent. Generate it on your NVIR profile — the link is on this page. |
+| **Stealth Mode** | Sends nothing at all, whatever your profile says. Your choices are remembered, just switched off. |
+| **Open my profile** | Opens the part of your profile that decides what the uplink may publish. |
 
-Stealth mode is there so you can go quiet for an evening without losing your
-settings — tick it, and nothing you do reaches the channel until you untick it.
+Stealth Mode is there so you can go quiet for an evening without changing
+anything: tick it, and nothing leaves your machine until you untick it. It is
+the one switch that lives here rather than on the site, because "send nothing"
+has to work with the site unreachable.
 
 The top of the page shows the version you are running, and whether a newer one
 has been published. Either way it links to the repository, where you can
 download the latest.
+
+## What you share
+
+Everything the uplink publishes is decided on your
+[profile](https://nvir.vercel.app/profile#uplink), each with its own switch:
+which rank-ups and carrier jumps get announced, and whether your totals count
+towards the Hall of Fame. Changes apply straight away — there is nothing to
+restart and no plugin update to wait for.
+
+Turning the Hall of Fame off also deletes what NVIR holds for you and refuses
+any more, so your next session will not quietly put it back.
 
 ## What gets posted
 
@@ -62,9 +75,9 @@ download the latest.
 | **Mercenary** | Gain a Mercenary rank |
 | **Fleet Carrier** | Schedule, cancel, or complete a carrier jump |
 
-One checkbox per channel. CQC rank-ups go out with your Combat rank, since
-both are fighting. Federal and Imperial navy ranks are not carried at all, and
-nothing about trading, bounties or selling data is sent.
+CQC rank-ups go out with your Combat rank, since both are fighting. Federal and
+Imperial navy ranks are not carried at all, and nothing about trading, bounties
+or selling data is sent.
 
 Two details worth knowing:
 
@@ -73,6 +86,17 @@ Two details worth knowing:
   are ignored.
 - **Restarting EDMC will not re-post your day.** Only things that happen while
   the plugin is running are sent.
+
+## Hall of Fame
+
+The game keeps a running tally of everything you have done — systems visited,
+bounties claimed, organics scanned — and writes it into your journal. The
+plugin forwards that tally, and the squadron
+[Hall of Fame](https://nvir.vercel.app/squadron/hall-of-fame) ranks it.
+
+Only the latest tally is kept, one per member, and names are shown masked. The
+boards are decided on the site, so NVIR can add one without you updating
+anything.
 
 ## Verifying your commander
 
@@ -93,16 +117,21 @@ flagged for an officer to change by hand.
 ## When something is wrong
 
 The row in EDMC's main window is where failures show up. It reads **Online**
-while everything is fine, and turns red with the reason when a send is refused:
+while everything is fine (**Stealth** while you are quiet), and a red line
+appears underneath with the reason when a send is refused:
 
 | It says | What happened |
 | --- | --- |
+| **No token** | Nothing pasted in yet. Generate one on your profile. |
 | **Token not recognised** | The token was deleted or never existed. Generate a new one. |
 | **Token revoked** | An officer revoked it. Generate a new one. |
 | **Uplink paused by NVIR** | Your token is real but suspended. An officer can lift it. |
+| **Commander linked elsewhere** | Another profile has claimed your commander. Ask an officer. |
+| **Hall of Fame off** | Your totals were offered while it is switched off. Re-enable it on your profile, or ignore this. |
+| **Handshake refused** | The site no longer understands this version. Update the plugin. |
 | **NVIR site unreachable** | Our problem, not yours. It keeps trying. |
 
-The first three **stop the uplink** until you paste a new token — there is no
+The first four **stop the uplink** until you paste a new token — there is no
 point asking the site about a credential it has already rejected, and doing so
 on every jump would bury anything else in the log. Anything still queued is
 dropped rather than saved up, so replacing a token does not flush an evening of
@@ -119,21 +148,29 @@ it.
 ## Privacy
 
 The plugin holds no Discord webhook, so it cannot post to the channel directly
-— it hands events to the squadron site, which checks them and posts them. Your
-token identifies you and nothing more.
+— it hands what it reads to the squadron site, which checks it and decides what
+to publish. Your token identifies you and nothing more.
 
 Your name is checked against the Inara squadron roster. If it does not match,
 nothing you send is posted; tell an officer and they can add a mapping.
 
+Your profile lists everything NVIR holds for you, and switching something off
+there stops it at the site, not just on your machine.
+
 ## Troubleshooting
 
 **Nothing is posting.** Look at the plugin's row in the main window first — if
-something was refused, it says so there. Otherwise check that Stealth mode is
-off and the box for that channel is ticked.
+something was refused, it says so there. Otherwise check that Stealth Mode is
+off, and that the category is still switched on for you on your
+[profile](https://nvir.vercel.app/profile#uplink).
 
 **It posted, then stopped.** Almost always a revoked or replaced token; the row
 will say. Pasting a new one starts it again immediately, without restarting
 EDMC.
+
+**Nothing of mine is in the Hall of Fame.** The game writes your totals when you
+start a session, so they arrive on your next one with the plugin running. Your
+profile says what is stored.
 
 **Something looks wrong.** EDMC's log has the detail —
 **File → Settings → Plugins → Open Log Folder**, and search for `NVIR`.

@@ -11,13 +11,14 @@ event is worth posting and what it reads like.
 
 ```
 journal_entry (EDMC main thread)
-  ├─ identity.py   who this commander is — before the replay guard
-  └─ journal.py    replay guard, category gate, carrier ownership
+  ├─ identity.py   who this commander is    ─┐ both before the replay guard:
+  ├─ statistics.py what they have done      ─┘ these arrive in EDMC's replay
+  └─ journal.py    replay guard, Stealth gate, carrier ownership
       └─ payload.py    normalise to the wire shape
           └─ sender.py     queue, hand to the delivery thread
                             (refuses outright while standing.py is latched)
-              └─ transport.py  POST to nova-web
-                                  └─ roster, routing, embed, Discord
+              └─ transport.py  POST to nova-web, endpoint picked by `kind`
+                                  └─ roster, mutes, routing, embed, Discord
 ```
 
 Nothing blocks EDMC's main thread: `journal_entry` only enqueues.
@@ -32,12 +33,30 @@ Nothing blocks EDMC's main thread: `journal_entry` only enqueues.
 | `sender.py` | Queue and delivery thread, rate-limit back-off |
 | `standing.py` | Whether the credential is still worth using |
 | `identity.py` | The handshake — FID, commander name, squadron standing |
-| `journal.py` | Replay guard, category gate, carrier ownership |
-| `settings.py` | Token and category choices |
+| `statistics.py` | Lifetime totals for the Hall of Fame, deduped by fingerprint |
+| `journal.py` | Replay guard, Stealth gate, carrier ownership |
+| `settings.py` | Token, Stealth, and the debug preferences |
 | `prefs.py` | Settings tab |
 | `debug_panel.py` | Main-window row and the debug window |
 | `log.py` | Logger wired into EDMC's tree |
 | `link-to-edmc.bat` | Links this checkout into EDMC's plugin folder |
+
+## What the plugin does not decide
+
+Which categories a member wants announced, and whether their totals feed the
+Hall of Fame, both live on their NVIR profile. The site applies the choice when
+a payload arrives; the plugin is never told and never asks.
+
+That is not a division of labour, it is the only version that works. A choice
+the plugin enforced would take effect at the member's next game session rather
+than when they unticked the box, and a plugin on somebody else's machine can
+only ever be advised. So `Settings.is_category_enabled()` and
+`Settings.contributes_to_hall_of_fame()` are both `not is_stealthed()` today —
+the names describe the question, not a stored answer.
+
+Stealth Mode is the exception, and stays local for two reasons: it has to work
+with the site unreachable, and it must not be something a server can switch back
+on.
 
 ## Working on a checkout
 
@@ -66,10 +85,10 @@ EventSpec(
 )
 ```
 
-`CATEGORIES` maps a channel to its checkbox label, so declaring the channel is
-what creates the checkbox, picks the destination, and gates the send.
-Extraction, the preferences grid and the debug form all read from that one
-table, so there is no second list to update.
+`category` must name a key in `events.CATEGORIES`, the plugin's whole idea of a
+channel. It rides along on the payload, but the site re-derives the channel from
+the event name rather than trusting it — see below — so the table's real job is
+keeping the two codebases naming the same six things.
 
 An extractor returns a **list**, so one journal entry can become several
 payloads. `Promotion` uses this: each career is its own payload with its own
@@ -132,9 +151,16 @@ infrastructure, not a preference.
 - `API_BASE_URL` — the site (`https://nvir.vercel.app`).
 - `API_EVENTS_PATH` — `/api/squadron/events`, the feed.
 - `API_IDENTITY_PATH` — `/api/uplink/identity`, the handshake.
+- `API_STATS_PATH` — `/api/uplink/stats`, the Hall of Fame.
+- `PROFILE_PATH` / `PROFILE_SHARING_PATH` — where the settings page's two links
+  go, resolved against the endpoint in use rather than hardcoded to production.
 - Channel routing is decided on the site, not here, and officers change it on
   `/admin/config` without a deploy. The plugin never holds a Discord webhook
   URL, so a leaked EDMC config cannot post to a channel.
+
+`sender.submit(..., kind=...)` picks which of the three a payload goes to;
+`transport.py` holds one method per endpoint and they share the token.
+
 `Settings.base_url()` resolves it:
 
 1. **The Dev Mode endpoint**, if both debug gates are on. It wins outright, so a
@@ -163,11 +189,12 @@ is what the Dev Mode endpoint does.
 Debug tooling is behind two switches, and both must be on:
 
 1. **`DEBUG` in `config.py`** — whether the build carries the tooling at all.
-   A release build ships `DEBUG = False`, and then no Development section is
+   A release build ships `DEBUG = False`, and then the Dev Mode section is never
    drawn and any stored debug preference is ignored outright.
-2. **The Debug mode checkbox** — whether this commander has switched it on.
+2. **Enable Dev Mode** — the checkbox at the bottom of the settings page,
+   whether this commander has switched it on.
 
-`Settings.is_debug()` is that `and`. It gates the Development row, the main
+`Settings.is_debug()` is that `and`. It gates the two dev fields, the main
 window's Debug button, and where events go —
 `is_dev_endpoint()` is `is_debug() and dev_api_url_value`.
 
@@ -180,15 +207,19 @@ save, because `plugin_app` only runs once — toggling it does not need a restar
 
 ## Developing against another site
 
-Tick **Enable Dev Mode** and type an endpoint — a local dev server, or staging.
-The field appears only once the box is ticked, and the debug window's
+Tick **Enable Dev Mode**, then fill in the two fields that appear: **Dev
+endpoint** (a local dev server, or staging) and **Dev token**. Both are hidden
+until the box is ticked rather than greyed out, and the debug window's
 destination line shows where a send would actually go.
 
 Beats editing `config.py` and remembering to put it back.
 
-A token belongs to one deployment's database, so a token from production will
-not work against staging and the other way round. The settings page's profile
-link points at whichever endpoint is configured, which is the point of it.
+The dev token is stored separately from the squadron one, and
+`Settings.token_value()` returns whichever matches the endpoint in use. A token
+belongs to one deployment's database, so pasting a staging token over your live
+one is a quiet way to break your own uplink and not notice until a rank-up goes
+missing. The settings page's profile links point at whichever endpoint is
+configured, for the same reason.
 
 ## The identity handshake
 
@@ -251,6 +282,43 @@ claimed this commander). `standing.py` deliberately does **not** latch on
 either — the token is fine and the feed has no problem — but they still surface
 on the panel, because nobody would find them in a log.
 
+## Statistics and the Hall of Fame
+
+`statistics.py`. Its own endpoint, `/api/uplink/stats`, on the same token.
+
+Elite writes one journal event, `Statistics`, carrying every lifetime total it
+tracks — sixteen sections, roughly two hundred numbers, all at once. That is the
+entire dataset the Hall of Fame ranks, and it costs nothing to collect because
+the game was writing it anyway.
+
+```json
+{ "v": 1, "statistics": { "Combat": { "Bounties_Claimed": 412, … }, … } }
+```
+
+Three things decide the shape:
+
+- **Sent whole.** The site chooses which numbers become boards, so forwarding
+  everything is what lets NVIR add one without shipping a plugin release. The
+  plugin's only question is whether to send at all.
+- **State, not a stream.** The event is already cumulative, so there is nothing
+  to accumulate here — the plugin forwards the latest and the site keeps exactly
+  one row per member.
+- **Deduped by fingerprint.** `Statistics` fires far more often than it changes
+  (measured at thirty-two times in one session), so `observe()` compares sorted
+  JSON of the payload against what was last *accepted*, not against whether one
+  has been seen. Two hundred fields compared by value would be a dictionary walk
+  per journal entry.
+
+Run ahead of the replay guard, like the handshake and for the same reason:
+`Statistics` arrives in EDMC's login replay, so treating it as history would mean
+a member only ever contributed when they alt-tabbed mid-game.
+
+`hall_of_fame_off` is the one refusal worth knowing about. The member deleted
+their record and opted out, so `Statistics.refuse()` stops offering for the rest
+of the session rather than posting the same rejection at every login. It clears
+on a new token, since that is a different profile as far as the site is
+concerned. It does **not** latch the credential — the token is fine.
+
 ## Failure handling
 
 A refusal carries three things: `error` for the member to read, and `code` plus
@@ -261,8 +329,8 @@ and it is written for a web page.
 | --- | --- | --- |
 | 401 | `no_token`, `unknown_token`, `revoked` | yes |
 | 403 | `suspended` | yes |
-| 409 | `fid_taken` — identity only, does not latch | yes |
-| 422 | `bad_payload` — identity only, does not latch | yes |
+| 409 | `fid_taken` (identity), `hall_of_fame_off` (statistics) — neither latches | yes |
+| 422 | `bad_payload` — does not latch | yes |
 | 503 | `unavailable` | no |
 | 429, 5xx, timeout | *(none)* | no |
 
@@ -323,13 +391,18 @@ from here, and removing it costs nothing a real journal entry cannot do.
 Because it goes through `payload.build` and the real sender queue, it exercises
 the same code a live journal entry does.
 
+The picker holds feed events only. The handshake and statistics are not
+hand-sendable — both are state folded out of journal entries rather than built
+from a form, so the way to exercise them is to point Dev Mode at a local site
+and start the game.
+
 Ship a release build with `DEBUG = False`.
 
 ## Payload
 
 ```json
 {
-  "v": 1, "plugin": "0.5.0",
+  "v": 1, "plugin": "0.7.0",
   "cmdr": "Elias Korben",
   "event": "Promotion",
   "category": "exploration",

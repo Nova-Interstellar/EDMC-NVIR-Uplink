@@ -84,7 +84,7 @@ class Statistics:
 
     @property
     def latest(self) -> Optional[dict]:
-        """The sections last seen, for the debug panel to show."""
+        """The sections last seen, whether or not the site has taken them."""
         return self._latest
 
 

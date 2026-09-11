@@ -1,9 +1,10 @@
 """
 Preferences tab.
 
-Two settings a commander actually owns: the squadron token, and what they
-broadcast. Endpoints ship in `config.py` — nobody should have to paste a URL to
-use this. The Development section exists only in a build with `DEBUG` on.
+Two settings a commander actually owns: the squadron token, and Stealth Mode.
+What they share is decided on their profile, so this pane links there rather than
+listing it. Endpoints ship in `config.py` — nobody should have to paste a URL to
+use this. The Dev Mode section exists only in a build with `DEBUG` on.
 
 Built against EDMC 6.x widgets: there is no `nb.Entry` any more (it is
 `nb.EntryMenu`), and `plugin_prefs` is isinstance-checked, so every frame
@@ -17,7 +18,7 @@ from tkinter import ttk
 
 import myNotebook as nb  # type: ignore
 
-from . import events, version
+from . import version
 from .config import DEBUG, GITHUB_URL, PLUGIN_TITLE, PLUGIN_VERSION
 from .log import logger
 
