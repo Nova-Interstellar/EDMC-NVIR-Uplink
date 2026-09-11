@@ -133,10 +133,19 @@ an error. `prefs.error_frame` exists for exactly this.
 `save()`; `transport.py` reads those. Reading a Tk variable off-thread appears
 to work and then fails intermittently.
 
-**Journal replay.** EDMC replays the current journal file on load. `journal.py`
-drops anything stamped before startup. `REPLAY_GRACE_SECONDS` is not zero on
-purpose: journal timestamps have whole-second precision, so an event in the same
-second as startup parses as *earlier* than startup and would be dropped.
+**Nothing arrives while the game is closed.** EDMC dispatches no `journal_entry`
+at all with Elite not running — not a replay, not a single line. Measured, after
+we told a member that restarting EDMC would push his handshake through: four log
+lines, all from startup, and `Journal: NOTHING RECEIVED` in the report.
+
+The plugin is therefore only ever fed while the game runs, and everything below
+about replay means *EDMC starting while the game is already running*, in which
+case it reads the in-progress journal from the top.
+
+**Journal replay.** Starting EDMC mid-session replays the current journal file.
+`journal.py` drops anything stamped before startup. `REPLAY_GRACE_SECONDS` is not
+zero on purpose: journal timestamps have whole-second precision, so an event in
+the same second as startup parses as *earlier* than startup and would be dropped.
 
 **`CarrierJump` fires for passengers.** It also carries no `CarrierID` — the
 carrier is identified by `MarketID`, and `StationName` is the callsign.
@@ -339,6 +348,12 @@ and `Journal.resend_state()` offers whatever the session already knows the
 moment `Settings.on_token_changed` fires. Statistics is gated on Stealth there
 exactly as `_contribute` gates it; identity is not, for the same reason
 `_handshake` is not.
+
+`resend_state` can only offer what this EDMC session has already seen, and with
+the game closed that is nothing — EDMC dispatches no entries at all. So a token
+pasted with Elite shut still sends nothing, and correctly so: there is nothing to
+send. The report says `not observed yet` rather than implying a failure, and the
+member's next login fills it in.
 
 Anything else that becomes "state the site needs" belongs in the same shape:
 fold, `pending()`, and a line in `resend_state`.

@@ -23,9 +23,12 @@ lives on your NVIR profile.
    your profile, and generate an uplink token.
 4. Open **File → Settings → NVIR Uplink** and paste it in. The settings page
    also links straight to your profile if you need to get back there.
+5. **Start the game.** The plugin sees nothing at all while Elite is closed, so
+   your commander is verified and your Hall of Fame totals sent at your next
+   login — not the moment you paste the token. If the game was already running
+   when you pasted it, that is fine and nothing is needed.
 
-That is the whole setup. There is no URL to configure — the plugin already
-knows where to send things.
+There is no URL to configure — the plugin already knows where to send things.
 
 The token is yours alone. It is shown once and stored only as a hash, so nobody
 — including an officer — can read it back; if you lose it, generate another and
@@ -177,9 +180,15 @@ off, and that the category is still switched on for you on your
 will say. Pasting a new one starts it again immediately, without restarting
 EDMC.
 
-**Nothing of mine is in the Hall of Fame.** The game writes your totals when you
-start a session, so they arrive on your next one with the plugin running. Your
-profile says what is stored.
+**Nothing is happening and nothing is red.** Almost always the game has not been
+started since you set the plugin up. EDMC hands the plugin nothing at all while
+Elite is closed — not even the events it already has — so log
+in once and it sorts itself out. **Show logs** says which case you are in: it
+reads *NOTHING RECEIVED* next to Journal until the game has run.
+
+**Nothing of mine is in the Hall of Fame.** Same answer: the game writes your
+totals at login, so they arrive at your next one with EDMC running. Your profile
+says what is stored.
 
 **Something looks wrong.** **File → Settings → NVIR Uplink → Show logs**, then
 **Copy**, and send it to an officer. It carries what the plugin is set to do and
