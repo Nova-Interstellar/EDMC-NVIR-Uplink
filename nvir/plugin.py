@@ -1,5 +1,6 @@
 """Wires the pieces together and holds the plugin's live state."""
 
+from datetime import datetime
 from typing import Optional
 
 from . import debug_panel, prefs, standing, transport, version
@@ -25,6 +26,8 @@ class Plugin:
         self.panel: Optional[debug_panel.AppPanel] = None
         self.checker = version.Checker()
         self.cmdr = ""
+        # So the report can say whether the log covers the whole session.
+        self.started_at = datetime.now()
 
     def start(self) -> str:
         self.settings = Settings()
@@ -55,16 +58,21 @@ class Plugin:
         self.standing.clear()
         self.last_error = None
 
-        # The site keys identity off the token's profile, so a new token means
-        # the handshake has to happen again. Without this it would wait for the
-        # next game session, and the member would sit unverified in between.
-        if self.journal is not None:
-            self.journal.forget_identity()
-
         if self.panel is not None:
             self.panel.clear_error()
 
         logger.info("Token changed: uplink resumed")
+
+        # The site keys identity off the token's profile, so a new token means
+        # the handshake has to happen again — and it has to happen now. The
+        # events carrying it fired at login, so waiting for the next one means
+        # waiting for the next game session.
+        #
+        # After clear_error, because these are sends and one of them failing
+        # should leave its own message on the panel rather than be wiped by the
+        # reset that let it happen.
+        if self.journal is not None:
+            self.journal.resend_state()
 
     def note_delivery(self, result) -> None:
         """
@@ -91,7 +99,7 @@ class Plugin:
     def prefs_widget(self, parent):
         try:
             return prefs.PreferencesUI(
-                self.settings, self.checker, self.last_error
+                self.settings, self.checker, self.last_error, controller=self
             ).build(parent)
         except Exception as err:
             logger.exception("Building the preferences page failed")

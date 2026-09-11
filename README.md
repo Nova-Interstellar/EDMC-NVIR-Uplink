@@ -43,6 +43,7 @@ Requires EDMC 6.x.
 | **Squadron Member Token** | Identifies you to the squadron site. Without it nothing is sent. Generate it on your NVIR profile — the link is on this page. |
 | **Stealth Mode** | Sends nothing at all, whatever your profile says. Your choices are remembered, just switched off. |
 | **Open my profile** | Opens the part of your profile that decides what the uplink may publish. |
+| **Show logs** | Everything the plugin has done since EDMC started, with your token hidden. Copy it to an officer when something is not working. |
 
 Stealth Mode is there so you can go quiet for an evening without changing
 anything: tick it, and nothing leaves your machine until you untick it. It is
@@ -116,9 +117,17 @@ flagged for an officer to change by hand.
 
 ## When something is wrong
 
-The row in EDMC's main window is where failures show up. It reads **Online**
-while everything is fine (**Stealth** while you are quiet), and a red line
-appears underneath with the reason when a send is refused:
+The row in EDMC's main window says what the uplink is doing:
+
+| Row | Meaning |
+| --- | --- |
+| **Online** | A token is set and nothing has been refused. |
+| **Stealth** | Stealth Mode is ticked. Nothing is being sent, by your choice. |
+| **Offline** | No token. Nothing can be sent until you paste one. |
+| **Error** | A send was refused. The reason is in the box underneath. |
+
+**Offline** and **Error** are red, and a box appears under the row with the
+detail:
 
 | It says | What happened |
 | --- | --- |
@@ -172,8 +181,10 @@ EDMC.
 start a session, so they arrive on your next one with the plugin running. Your
 profile says what is stored.
 
-**Something looks wrong.** EDMC's log has the detail —
-**File → Settings → Plugins → Open Log Folder**, and search for `NVIR`.
+**Something looks wrong.** **File → Settings → NVIR Uplink → Show logs**, then
+**Copy**, and send it to an officer. It carries what the plugin is set to do and
+everything it has done this session, with your token masked — it is safe to
+paste as it stands, and it usually answers the question on its own.
 
 **The settings page says "Version check unavailable".** It could not reach
 GitHub. Harmless — it has no effect on whether your events are sent.

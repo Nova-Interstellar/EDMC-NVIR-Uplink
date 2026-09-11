@@ -26,6 +26,7 @@ from .config import (
     PLUGIN_VERSION,
     USER_AGENT,
 )
+from .log import logger
 
 
 @dataclass
@@ -169,7 +170,15 @@ class ApiTransport:
 
         token = self._settings.token_value()
         if not token:
-            return Delivery(False, detail="No squadron token configured")
+            # Named, so the panel can say which of the token failures this is.
+            # Unnamed it fell through to "Uplink failed. Check settings.", which
+            # is the vaguest message we have on the one failure with the
+            # clearest fix.
+            return Delivery(
+                False,
+                detail="No squadron token configured.",
+                code="no_token",
+            )
 
         return self._post(
             url,
@@ -187,14 +196,20 @@ class ApiTransport:
         if self._session is None:
             return Delivery(False, detail="Transport is closed")
 
+        # The request itself, so a report shows what was attempted and not only
+        # what came back. No headers: one of them is the token.
+        logger.debug("POST %s", url)
+
         try:
             response = self._session.post(
                 url, json=body, headers=headers, timeout=HTTP_TIMEOUT
             )
         except Exception as err:  # network unreachable, DNS, TLS, timeout
+            logger.warning("POST %s did not complete: %s", url, err)
             return Delivery(False, detail=str(err), retryable=True, retry_after=5.0)
 
         status = response.status_code
+        logger.debug("POST %s answered %s", url, status)
 
         if 200 <= status < 300:
             decoded = None

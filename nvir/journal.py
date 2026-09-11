@@ -30,15 +30,78 @@ class Journal:
         self._identity = Identity()
         self._statistics = Statistics()
         self._last_result = ""
+        self._seen = 0
+        self._first_event = ""
 
     @property
     def last_result(self) -> str:
         return self._last_result
 
-    def forget_identity(self) -> None:
-        """A new token deserves a fresh handshake, not a session's worth of wait."""
+    def summary(self) -> list:
+        """
+        What this session has learned, for the diagnostics report.
+
+        These two lines answer the question a broken uplink actually poses:
+        whether the plugin has anything to send, or whether it has been sending
+        and being refused. Nothing else distinguishes them from the outside.
+        """
+        return [
+            ("Journal", self._journal_summary()),
+            ("Handshake", self._identity.summary()),
+            ("Statistics", self._statistics.summary()),
+            ("Carriers owned", str(len(self._owned_carriers))),
+        ]
+
+    def _journal_summary(self) -> str:
+        """
+        Whether EDMC is talking to us at all, which nothing else establishes.
+
+        Its own Cmdr and System fields come from EDMC's monitor rather than
+        this hook, so a main window full of the right commander says nothing
+        about whether a single entry reached the plugin.
+        """
+        if not self._seen:
+            return "NOTHING RECEIVED — EDMC has sent this plugin no journal entries"
+        return "{0} {1}, first was {2}".format(
+            self._seen, "entry" if self._seen == 1 else "entries", self._first_event
+        )
+
+    def resend_state(self) -> None:
+        """
+        Offers everything this session knows, as if it had never been sent.
+
+        Called when the token changes. Clearing what was accepted is not enough
+        on its own: both `Identity` and `Statistics` can only produce a payload
+        while the journal entry that carries it is in hand, and those entries
+        arrive at login. Pasting a token afterwards — which is what everybody
+        does, since the token is what the plugin was installed for — would leave
+        the member unverified and off the boards until the next game session,
+        with the panel reporting Online throughout.
+
+        Sending immediately costs at most two requests the site would have
+        received anyway.
+        """
         self._identity.forget()
         self._statistics.forget()
+
+        identity = self._identity.pending()
+        if identity is not None:
+            logger.info("Token changed: re-sending the handshake")
+            self._send_identity(identity)
+        else:
+            logger.info("Token changed: no handshake to re-send yet")
+
+        # Gated exactly as `_contribute` is, or a stealthed member would
+        # contribute by pasting a token — the one act that guarantees they are
+        # looking at the settings page and believe nothing is being sent.
+        if not self._settings.contributes_to_hall_of_fame():
+            logger.info("Token changed: statistics held back (Stealth Mode)")
+            return
+
+        statistics = self._statistics.pending()
+        if statistics is not None:
+            logger.info("Token changed: re-sending statistics")
+            self._send_statistics(statistics)
 
     def on_entry(
         self,
@@ -55,6 +118,18 @@ class Journal:
         event_name = entry.get("event")
         if not event_name:
             return
+
+        # Once, so a report says whether EDMC is talking to us at all. Every
+        # other explanation for a silent uplink assumes journal entries are
+        # arriving, and that is the assumption nothing else tests: EDMC's own
+        # Cmdr and System fields come from its monitor, not from this hook, so
+        # a populated main window proves nothing about the plugin.
+        self._seen += 1
+        if self._seen == 1:
+            self._first_event = event_name
+            logger.info(
+                "First journal entry: %s (commander %s)", event_name, cmdr or "unknown"
+            )
 
         # Learn which carriers belong to this commander before the replay
         # guard runs: CarrierStats arrives during the login replay, and it is
@@ -113,6 +188,14 @@ class Journal:
         if proposed is None:
             return
 
+        logger.info(
+            "Handshake from %s: commander %s",
+            entry.get("event"),
+            proposed.get("commanderName"),
+        )
+        self._send_identity(proposed)
+
+    def _send_identity(self, proposed: dict) -> None:
         logger.info("Queued identity for %s", proposed.get("commanderName"))
         self._sender.submit(
             proposed,
@@ -139,6 +222,9 @@ class Journal:
         if proposed is None:
             return
 
+        self._send_statistics(proposed)
+
+    def _send_statistics(self, proposed: dict) -> None:
         logger.info("Queued statistics (%d sections)", len(proposed["statistics"]))
         self._sender.submit(
             proposed,

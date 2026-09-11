@@ -38,7 +38,8 @@ Nothing blocks EDMC's main thread: `journal_entry` only enqueues.
 | `settings.py` | Token, Stealth, and the debug preferences |
 | `prefs.py` | Settings tab |
 | `debug_panel.py` | Main-window row and the debug window |
-| `log.py` | Logger wired into EDMC's tree |
+| `diagnostics.py` | The Show Logs report, masked and copyable |
+| `log.py` | Logger wired into EDMC's tree, plus the ring buffer |
 | `link-to-edmc.bat` | Links this checkout into EDMC's plugin folder |
 
 ## What the plugin does not decide
@@ -319,6 +320,55 @@ of the session rather than posting the same rejection at every login. It clears
 on a new token, since that is a different profile as far as the site is
 concerned. It does **not** latch the credential — the token is fine.
 
+## State that arrives once
+
+`Identity` and `Statistics` both fold journal entries into what they know and
+offer a payload when it moves. The trap is that `observe` can only answer while
+the entry is *in hand*, and the entries carrying this state arrive at login:
+`Commander` and `LoadGame` once each, `Statistics` when the game feels like it,
+the squadron events a few times a year.
+
+So clearing what was accepted is never enough on its own. A token pasted
+mid-session -- which is every first-time setup, since the token is the reason
+the plugin was installed -- would wait for an entry that is not coming until the
+next game start, with the panel reporting Online throughout. That is exactly how
+one member spent a session unverified and off the boards.
+
+Both therefore answer the same question without an entry, through `pending()`,
+and `Journal.resend_state()` offers whatever the session already knows the
+moment `Settings.on_token_changed` fires. Statistics is gated on Stealth there
+exactly as `_contribute` gates it; identity is not, for the same reason
+`_handshake` is not.
+
+Anything else that becomes "state the site needs" belongs in the same shape:
+fold, `pending()`, and a line in `resend_state`.
+
+## Diagnostics
+
+`diagnostics.py`, reached from **Show logs** on the settings page. It assembles
+the configuration, what the session has learned, and every line the plugin has
+logged, then masks the secrets so the whole thing can be pasted into Discord.
+
+The log comes from a ring buffer in `log.py` -- a `logging.Handler` on our own
+logger keeping the last `RECENT_LIMIT` formatted records. Our logger is set to
+DEBUG so the buffer sees everything regardless of EDMC's level; EDMC's handlers
+still apply their own, so a member running at INFO does not get our debug lines
+in their file.
+
+Two rules when adding to it:
+
+- **Log the decision, not just the outcome.** "No handshake to re-send yet" is
+  worth a line precisely because nothing happened -- a silent uplink is the
+  failure mode, so silence in the log is the one thing that cannot be read.
+- **Mask anything that authenticates.** `log.mask` gives first and last three,
+  which identifies a token without being one. It is covered by a test that puts
+  every secret through `report()` and asserts none survives whole.
+
+`Journal.summary()`, `Identity.summary()` and `Statistics.summary()` exist for
+this report and nothing else. They are what distinguishes "never had anything to
+send" from "sent it and was refused", which is otherwise invisible from outside
+the process.
+
 ## Failure handling
 
 A refusal carries three things: `error` for the member to read, and `code` plus
@@ -402,7 +452,7 @@ Ship a release build with `DEBUG = False`.
 
 ```json
 {
-  "v": 1, "plugin": "0.7.0",
+  "v": 1, "plugin": "0.8.0",
   "cmdr": "Elias Korben",
   "event": "Promotion",
   "category": "exploration",

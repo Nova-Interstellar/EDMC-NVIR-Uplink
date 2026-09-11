@@ -40,6 +40,35 @@ class Statistics:
         self._sent = None
         self._refused = False
 
+    def summary(self) -> str:
+        """One line for the diagnostics report."""
+        if self._refused:
+            return "refused by the site (Hall of Fame is off on the profile)"
+        if self._latest is None:
+            return "not observed yet (no Statistics entry this session)"
+
+        return "{0} sections seen, {1}".format(
+            len(self._latest),
+            "accepted by the site" if self._sent else "not yet accepted",
+        )
+
+    def pending(self) -> Optional[dict]:
+        """
+        The last totals seen, if the site has not already taken them.
+
+        Same reason as the handshake: `observe` can only answer while a
+        `Statistics` entry is in hand, and the game decides when to write one.
+        A member who pastes their token just after the last of the session
+        would otherwise contribute nothing until they play again.
+        """
+        if self._refused or self._latest is None:
+            return None
+
+        payload = {"v": 1, "statistics": self._latest}
+        if _fingerprint(payload) == self._sent:
+            return None
+        return payload
+
     def accept(self, payload: dict) -> None:
         """Called once the site has stored a payload, so it is not repeated."""
         self._sent = _fingerprint(payload)
@@ -76,11 +105,7 @@ class Statistics:
             return None
 
         self._latest = sections
-
-        payload = {"v": 1, "statistics": sections}
-        if _fingerprint(payload) == self._sent:
-            return None
-        return payload
+        return self.pending()
 
     @property
     def latest(self) -> Optional[dict]:

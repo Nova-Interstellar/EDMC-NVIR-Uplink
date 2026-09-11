@@ -18,7 +18,7 @@ from tkinter import ttk
 
 import myNotebook as nb  # type: ignore
 
-from . import version
+from . import diagnostics, version
 from .config import DEBUG, GITHUB_URL, PLUGIN_TITLE, PLUGIN_VERSION
 from .log import logger
 
@@ -30,10 +30,13 @@ ERROR_COLOR = "#d9534f"
 class PreferencesUI:
     """The plugin's page in EDMC's settings dialog."""
 
-    def __init__(self, settings, checker=None, error=None):
+    def __init__(self, settings, checker=None, error=None, controller=None):
         self._settings = settings
         self._checker = checker
         self._error = error
+        # Only the log window needs it, and only to read state off. Optional so
+        # a pane can still be built without one.
+        self._controller = controller
         self._bold = None
         self._version_link = None
         # Every widget _sync_enabled touches, declared here so it can run before
@@ -96,6 +99,9 @@ class PreferencesUI:
 
         row = self._rule(frame, row)
         row = self._sharing_section(frame, row)
+
+        row = self._rule(frame, row)
+        row = self._logs_section(frame, row)
 
         if DEBUG:
             row = self._rule(frame, row)
@@ -168,6 +174,41 @@ class PreferencesUI:
         )
         return row + 1
 
+    def _logs_section(self, frame, row: int) -> int:
+        """
+        One button, so a broken uplink can be reported without a scavenger hunt.
+
+        The alternative was telling a member to open EDMC's log folder, pick the
+        right file and find our lines among every other plugin's. That is a
+        report we do not get, and this plugin's failures are mostly invisible
+        from the outside — the difference between "never sent anything" and
+        "sent it and was refused" is not something a screenshot can show.
+
+        The window masks the token and every other secret, so what comes out can
+        be pasted into Discord as it stands.
+        """
+        nb.Label(frame, text="Something not working?", font=self._heading_font()).grid(
+            row=row, column=0, columnspan=2, sticky=tk.W, **PAD
+        )
+        row += 1
+
+        nb.Label(
+            frame,
+            text=(
+                "Opens everything this plugin has done since EDMC started, with "
+                "your token hidden. Copy it to an officer and we can see what "
+                "went wrong."
+            ),
+            wraplength=420,
+            justify=tk.LEFT,
+        ).grid(row=row, column=0, columnspan=2, sticky=tk.W, **PAD)
+        row += 1
+
+        ttk.Button(frame, text="Show logs", command=self._open_logs).grid(
+            row=row, column=0, sticky=tk.W, **PAD
+        )
+        return row + 1
+
     def _debug_section(self, frame, row: int) -> int:
         """
         The switch, and the two things a development build needs with it.
@@ -228,6 +269,13 @@ class PreferencesUI:
 
     def _open_repository(self, _event=None) -> None:
         webbrowser.open(GITHUB_URL)
+
+    def _open_logs(self) -> None:
+        if self._controller is None:
+            logger.warning("Show logs pressed with no controller attached")
+            return
+        logger.info("Opening the log window")
+        diagnostics.open_window(self._version_link.winfo_toplevel(), self._controller)
 
     def _on_version(self, state) -> None:
         # May arrive on the checking thread; hop back before touching a widget.

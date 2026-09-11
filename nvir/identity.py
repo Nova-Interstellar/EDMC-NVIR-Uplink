@@ -59,11 +59,48 @@ class Identity:
         """
         A new token is a new profile as far as the site is concerned.
 
-        Clearing what was accepted means the next watched event re-sends the
-        handshake, rather than the member pasting a working token and staying
-        unverified until they next start the game.
+        Clearing what was accepted is only half of it — see `pending`. The
+        watched events all fire at login and nowhere else, so on its own this
+        would leave the member waiting for a game restart.
         """
         self._sent = None
+
+    def summary(self) -> str:
+        """
+        One line for the diagnostics report.
+
+        The FID is reduced to whether it exists. It is not a secret — the game
+        shows the commander name to anyone in the same instance — but a report
+        gets pasted into Discord, and whether the handshake has the id is the
+        only part anybody debugging needs.
+        """
+        if not self._fid and not self._name:
+            return "not observed yet (no Commander or LoadGame this session)"
+
+        return "{0}, FID {1}, {2}".format(
+            self._name or "(no name)",
+            "known" if self._fid else "MISSING",
+            "accepted by the site" if self._sent else "not yet accepted",
+        )
+
+    def pending(self) -> Optional[dict]:
+        """
+        What this session knows, if the site has not already taken it.
+
+        `observe` can only answer while a watched entry is in hand, and every
+        one of them fires at login: `Commander` and `LoadGame` once, the
+        squadron events a handful of times a year. So a member who pastes their
+        token mid-session has already missed the only chance to be seen — the
+        handshake would wait for the next game start, with the plugin reporting
+        Online the whole time.
+
+        This is the same question asked without an entry, so a token change can
+        offer what is already known immediately.
+        """
+        payload = self._payload()
+        if payload is None or payload == self._sent:
+            return None
+        return payload
 
     def accept(self, payload: dict) -> None:
         """Called once the site has recorded a payload, so it is not repeated."""
@@ -102,10 +139,7 @@ class Identity:
                     "rank": _rank(entry),
                 }
 
-        payload = self._payload()
-        if payload is None or payload == self._sent:
-            return None
-        return payload
+        return self.pending()
 
     def _payload(self) -> Optional[dict]:
         if not self._fid or not self._name:

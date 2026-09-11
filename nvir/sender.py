@@ -28,6 +28,11 @@ class Sender:
         self._queue: queue.Queue = queue.Queue()
         self._stop = threading.Event()
         self._thread: Optional[threading.Thread] = None
+        # For the diagnostics report. Written on the delivery thread and read
+        # on the main one, which is safe for a plain int and not worth a lock
+        # for a number nobody acts on.
+        self._delivered = 0
+        self._refused = 0
 
     def start(self) -> None:
         if self._thread is not None:
@@ -163,6 +168,7 @@ class Sender:
             result = post(payload)
 
             if result.ok:
+                self._delivered += 1
                 logger.info("Sent %s (attempt %d)", event_name, attempt)
                 return result
 
@@ -180,7 +186,21 @@ class Sender:
         # `attempt`, not MAX_ATTEMPTS: a refusal that is not retryable gives up
         # after one try, and a log claiming three would send whoever reads it
         # hunting for two requests that never happened.
+        self._refused += 1
         logger.error(
             "Dropped %s after %d attempt(s): %s", event_name, attempt, result.detail
         )
         return result
+
+    def summary(self) -> str:
+        """
+        What the wire has actually carried, for the diagnostics report.
+
+        Worth its own line because zero is the interesting number: a plugin
+        that has queued things and delivered none is a different problem from
+        one that has never had anything to queue, and no other line separates
+        them.
+        """
+        if not self._delivered and not self._refused:
+            return "nothing sent yet"
+        return "{0} delivered, {1} refused".format(self._delivered, self._refused)

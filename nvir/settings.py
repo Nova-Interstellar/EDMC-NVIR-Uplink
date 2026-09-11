@@ -1,17 +1,17 @@
 """
 Per-commander preferences, stored in EDMC's config.
 
-Only two things are a commander's choice: the squadron token, and what they are
-willing to broadcast. Endpoints are squadron infrastructure and live in
-`config.py` — except the development endpoint, which only exists while DEBUG is
-on and which Debug mode alone decides.
+Only two things are a commander's choice: the squadron token, and Stealth Mode.
+What they are willing to share is decided on their NVIR profile and applied by
+the site. Endpoints are squadron infrastructure and live in `config.py` — except
+the development endpoint, which only exists while DEBUG is on and which Dev Mode
+alone decides.
 """
 
 import tkinter as tk
 
 from config import config  # type: ignore
 
-from . import events
 from .config import (
     DEBUG,
     KEY_API_TOKEN,
@@ -19,13 +19,11 @@ from .config import (
     KEY_DEV_API_TOKEN,
     KEY_DEV_API_URL,
     KEY_STEALTH,
-    LEGACY_DEV_URL_KEY,
     PROFILE_PATH,
     PROFILE_SHARING_PATH,
-    RETIRED_KEYS,
     squadron_url,
 )
-from .log import logger
+from .log import logger, mask
 
 
 class Settings:
@@ -55,16 +53,15 @@ class Settings:
         self.load()
 
     def load(self) -> None:
-        self._drop_retired_keys()
-
         self.api_token.set(config.get_str(KEY_API_TOKEN, default=""))
         self.stealth.set(config.get_bool(KEY_STEALTH, default=False))
 
         self.debug_mode.set(config.get_bool(KEY_DEBUG_MODE, default=False))
-        self.dev_api_url.set(self._load_dev_url())
+        self.dev_api_url.set(config.get_str(KEY_DEV_API_URL, default=""))
         self.dev_api_token.set(config.get_str(KEY_DEV_API_TOKEN, default=""))
 
         self._snapshot()
+        logger.info("Settings loaded: %s", self.describe())
 
     def save(self) -> None:
         previous = self.api_token_value
@@ -77,38 +74,40 @@ class Settings:
         config.set(KEY_DEV_API_TOKEN, self.dev_api_token.get().strip())
 
         self._snapshot()
-        logger.info("Preferences saved")
+        logger.info("Settings saved: %s", self.describe())
 
-        if self.api_token_value != previous and self.on_token_changed is not None:
+        if self.api_token_value == previous:
+            return
+
+        # Said plainly, because a member who has just broken their own uplink by
+        # clearing the field will be reading this line when they ask why.
+        if not self.api_token_value:
+            logger.warning("Squadron token cleared \N{EM DASH} nothing will be sent")
+        else:
+            logger.info("Squadron token set to %s", mask(self.api_token_value))
+
+        if self.on_token_changed is not None:
             self.on_token_changed()
 
-    def _load_dev_url(self) -> str:
+    def describe(self) -> str:
         """
-        The development endpoint, carried over from the old key once.
+        One redacted line saying what this plugin will do with what it is given.
 
-        Someone who had already pointed this at staging should not have to
-        find that URL again because the setting was reshaped underneath them.
+        Logged on every load and save, so the report from a member whose uplink
+        is not working already contains the configuration that explains it,
+        without anybody having to ask them to read their own settings back.
         """
-        stored = config.get_str(KEY_DEV_API_URL, default="")
+        parts = ["token {0}".format(mask(self.api_token_value))]
 
-        if not stored:
-            legacy = config.get_str(LEGACY_DEV_URL_KEY, default="")
-            if legacy:
-                stored = legacy
-                config.set(KEY_DEV_API_URL, legacy)
-                logger.info("Carried the development endpoint over from %s", LEGACY_DEV_URL_KEY)
+        if self.is_stealthed():
+            parts.append("Stealth ON")
+        if self.debug_mode_value:
+            parts.append("Dev Mode on")
+            parts.append("dev endpoint {0}".format(self.dev_api_url_value or "(not set)"))
+            parts.append("dev token {0}".format(mask(self.dev_api_token_value)))
 
-        if config.get_str(LEGACY_DEV_URL_KEY, default=""):
-            config.delete(LEGACY_DEV_URL_KEY)
-
-        return stored
-
-    def _drop_retired_keys(self) -> None:
-        """Clear webhook URLs and endpoints left by an earlier build."""
-        for key in RETIRED_KEYS:
-            if config.get_str(key, default=""):
-                config.delete(key)
-                logger.info("Removed retired setting %s", key)
+        parts.append("sending to {0}".format(self.base_url() or "(nowhere)"))
+        return ", ".join(parts)
 
     def _snapshot(self) -> None:
         """Refresh the plain copies the delivery thread reads."""

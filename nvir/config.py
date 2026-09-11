@@ -14,7 +14,7 @@ PLUGIN_TITLE = "Nova Interstellar Uplink"
 # For the main EDMC window, where the row shares a narrow column with the
 # commander, ship and system fields.
 PLUGIN_TITLE_SHORT = "NVIR Uplink"
-PLUGIN_VERSION = "0.7.0"
+PLUGIN_VERSION = "0.8.0"
 
 # --- Repository --------------------------------------------------------------
 # One constant so a repo rename is a single edit. GitHub redirects the old path
@@ -99,10 +99,6 @@ REPLAY_GRACE_SECONDS = 5
 
 KEY_API_TOKEN = "nvir_api_token"
 KEY_STEALTH = "nvir_stealth"
-# Retired: which channels broadcast moved to the member's NVIR profile, where
-# the site applies it on arrival. Kept only so the stored values can be cleaned
-# up on load; nothing reads them.
-LEGACY_CATEGORY_KEY = "nvir_category_{0}"
 
 # Debug-only, and only honoured while DEBUG is on: a build shipped with
 # DEBUG = False ignores whatever these hold.
@@ -116,47 +112,12 @@ KEY_DEV_API_URL = "nvir_dev_api_url"
 # break your own uplink.
 KEY_DEV_API_TOKEN = "nvir_dev_api_token"
 
-# The endpoint used to live behind a second "use localhost" checkbox. Debug mode
-# now implies it, so the old value is carried across once and the key dropped.
-LEGACY_DEV_URL_KEY = "nvir_localhost_url"
-
-# Settings retired as the plugin moved to the squadron API. Any value still
-# stored under these keys is deleted on load, so no webhook URL or hand-typed
-# endpoint lingers in a member's EDMC config.
-RETIRED_KEYS = (
-    # Whether to contribute statistics. The site already refuses them for a
-    # member who has switched it off, and deletes what it holds, so a second
-    # switch here could only disagree with the first.
-    "nvir_hall_of_fame",
-    # Per-channel broadcast choices, now on the profile page.
-    "nvir_category_trade",
-    "nvir_category_combat",
-    "nvir_category_exploration",
-    "nvir_category_exobiology",
-    "nvir_category_mercenary",
-    "nvir_category_carrier",
-    "nvir_use_localhost",
-    "nvir_webhook_url",
-    "nvir_option_trade.sales",
-    "nvir_option_trade.ranks",
-    "nvir_option_combat.vouchers",
-    "nvir_option_combat.ranks",
-    "nvir_option_combat.cqc",
-    "nvir_option_exploration.sales",
-    "nvir_option_exploration.ranks",
-    "nvir_option_exobiology.sales",
-    "nvir_option_exobiology.ranks",
-    "nvir_option_mercenary.ranks",
-    "nvir_option_carrier.jumps",
-    "nvir_api_url",
-    "nvir_api_url_debug",
-    "nvir_api_url_trade",
-    "nvir_api_url_combat",
-    "nvir_api_url_exploration",
-    "nvir_api_url_exobiology",
-    "nvir_api_url_milestones",
-    "nvir_api_url_carrier",
-)
+# There is no migration list here on purpose. Earlier builds stored webhook
+# URLs, per-channel checkboxes and a separate localhost flag, and load() used to
+# delete every one of them on start. Nothing has shipped yet — the only
+# machines that ever held those keys are ours — so the cleanup was
+# thirty lines run on every EDMC launch to tidy up after nobody. Add one back
+# only once there is a member who would notice.
 
 
 def squadron_url() -> str:

@@ -66,6 +66,8 @@ class AppPanel:
         self._button = None
         self._window = None
         self._error = None
+        self._default_fg = ""
+        self._error_box = None
         self._error_label = None
 
     def build(self, parent):
@@ -80,16 +82,35 @@ class AppPanel:
             row=0, column=0, sticky=tk.EW
         )
 
-        self._status = tk.Label(frame, text=self._idle_text(), anchor=tk.E)
+        self._status = tk.Label(frame, text="", anchor=tk.E)
         self._status.grid(row=0, column=1, sticky=tk.E)
+        # Tk rejects an empty colour, so the healthy state needs the real
+        # default rather than "unset". Read off the widget so EDMC's theme
+        # decides it, not us.
+        self._default_fg = self._status.cget("foreground")
 
-        # Its own row underneath, so a failure never widens the window by
+        # A box on its own row, so a message never widens the window by
         # competing with the status text for the same line. Removed from the
         # grid entirely while healthy rather than left blank, which would keep
         # reserving vertical space for nothing.
-        self._error_label = tk.Label(
-            frame, anchor=tk.W, justify=tk.LEFT, foreground=ERROR_COLOR
+        #
+        # EDMC's window grows to fit its widest child and does not shrink back,
+        # so a long sentence in a plain label is permanent damage to the layout.
+        # The label wraps to whatever width the row already has, re-measured on
+        # every resize, which means it can never be the widest child.
+        self._error_box = tk.Frame(
+            frame, highlightbackground=ERROR_COLOR, highlightthickness=1
         )
+        self._error_box.columnconfigure(0, weight=1)
+        self._error_label = tk.Label(
+            self._error_box,
+            anchor=tk.W,
+            justify=tk.LEFT,
+            foreground=ERROR_COLOR,
+            wraplength=240,
+        )
+        self._error_label.grid(row=0, column=0, sticky=tk.EW, padx=6, pady=4)
+        self._error_box.bind("<Configure>", self._rewrap)
 
         # Built once and shown or hidden as the preference changes, since
         # plugin_app only runs at startup.
@@ -126,19 +147,33 @@ class AppPanel:
         self._error = None
         self._render()
 
+    def _rewrap(self, event) -> None:
+        """Keeps the message inside the width the row already has."""
+        if self._error_label is None:
+            return
+        try:
+            self._error_label.configure(wraplength=max(event.width - 16, 120))
+        except tk.TclError:
+            pass
+
     def _render(self) -> None:
         if self._status is None:
             return
         try:
-            self._status.configure(text=self._idle_text())
+            text, colour = self._state()
+            self._status.configure(text=text, foreground=colour)
 
-            if self._error_label is None:
+            if self._error_box is None:
                 return
-            if self._error:
-                self._error_label.configure(text=self._error)
-                self._error_label.grid(row=1, column=0, columnspan=3, sticky=tk.W)
+
+            message = self._message()
+            if message:
+                self._error_label.configure(text=message)
+                self._error_box.grid(
+                    row=1, column=0, columnspan=3, sticky=tk.EW, pady=(3, 0)
+                )
             else:
-                self._error_label.grid_remove()
+                self._error_box.grid_remove()
         except tk.TclError:
             pass
 
@@ -156,13 +191,61 @@ class AppPanel:
         except tk.TclError:
             pass
 
-    def _idle_text(self) -> str:
+    def status_text(self) -> str:
+        """What the row currently says, for the diagnostics report."""
+        return self._state()[0]
+
+    def _state(self):
+        """
+        What the row says, and in what colour.
+
+        It used to say Online whenever the member was not stealthed, which it
+        could answer without knowing whether a token existed or whether anything
+        had ever been delivered. A commander who had installed the plugin and
+        done nothing else read the same word as one whose uplink worked, which
+        is how a member spent a whole session unverified while the panel
+        reassured them.
+
+        Order is by what the member should act on. A deliberate silence outranks
+        a missing token, because they chose it and nothing else is going to
+        happen either way; a missing token outranks a failure, because there is
+        nothing to fix in a send that could not have been made.
+        """
         settings = self._controller.settings
+
         if settings.is_stealthed():
-            return "Stealth"
+            return "Stealth", self._default_fg
+        if not settings.token_value():
+            return "Offline", ERROR_COLOR
+        if self._error:
+            return "Error", ERROR_COLOR
         if settings.is_dev_endpoint():
-            return "Online (Dev)"
-        return "Online"
+            return "Online (Dev)", self._default_fg
+        return "Online", self._default_fg
+
+    def _message(self):
+        """
+        What the box says, or None to hide it.
+
+        A refusal wins when there is one: it is the more specific answer, and
+        the token line would only repeat what the status already said.
+        """
+        if self._error:
+            return self._error
+
+        settings = self._controller.settings
+        if not settings.token_value():
+            if settings.is_dev_endpoint():
+                return (
+                    "Dev Mode is on and has no token. Generate one on the "
+                    "profile for that endpoint and paste it into Dev token."
+                )
+            return (
+                "No squadron token. Generate one on your NVIR profile and paste "
+                "it into File \N{RIGHTWARDS ARROW} Settings \N{RIGHTWARDS ARROW} "
+                "NVIR Uplink."
+            )
+        return None
 
     def set_status(self, text: str) -> None:
         """Transient text from the debug window; errors have their own row."""
