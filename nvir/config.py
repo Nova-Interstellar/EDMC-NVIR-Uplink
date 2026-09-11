@@ -70,10 +70,10 @@ API_STATS_PATH = "/api/uplink/stats"
 # there — tokens live in a database, and each deployment has its own.
 PROFILE_PATH = "/profile"
 
-# The section of that page holding the broadcast choices, the Hall of Fame
-# record and its delete. Deep-linked so the button lands on the thing it
-# promised rather than the top of the page.
-PROFILE_SHARING_PATH = "/profile#sharing"
+# The section of that page holding the token, the broadcast choices and the
+# Hall of Fame switch. Deep-linked so the button lands on the thing it promised
+# rather than the top of the page.
+PROFILE_SHARING_PATH = "/profile#uplink"
 
 # Where a development build sends is typed in by whoever is developing, and
 # defaults to nothing. A shipped default would put one deployment's hostname in
