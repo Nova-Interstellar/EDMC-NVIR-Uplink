@@ -8,11 +8,15 @@ It reads your game journal, the same file EDSM and Inara already read, and
 nothing else on your machine. What it is allowed to send is yours to choose, and
 lives on your NVIR profile.
 
+### [⬇ Download EDMC-NVIR-Uplink.zip](https://github.com/Nova-Interstellar/EDMC-NVIR-Uplink/releases/latest/download/EDMC-NVIR-Uplink.zip)
+
+Always the newest release. The plugin tells you when a new one exists, on its
+settings page.
+
 ## Install
 
-1. Download **EDMC-NVIR-Uplink.zip** from the
-   [latest release](https://github.com/Nova-Interstellar/EDMC-NVIR-Uplink/releases/latest)
-   and extract it **into** EDMC's plugin folder:
+1. Download [**EDMC-NVIR-Uplink.zip**](https://github.com/Nova-Interstellar/EDMC-NVIR-Uplink/releases/latest/download/EDMC-NVIR-Uplink.zip) and extract it **into** EDMC's plugin
+   folder:
 
    ```
    %LOCALAPPDATA%\EDMarketConnector\plugins
