@@ -10,13 +10,19 @@ lives on your NVIR profile.
 
 ## Install
 
-1. Download the plugin and unzip it into EDMC's plugin folder:
+1. Download **EDMC-NVIR-Uplink.zip** from the
+   [latest release](https://github.com/Nova-Interstellar/EDMC-NVIR-Uplink/releases/latest)
+   and extract it **into** EDMC's plugin folder:
 
    ```
-   %LOCALAPPDATA%\EDMarketConnector\plugins\EDMC-NVIR-Uplink
+   %LOCALAPPDATA%\EDMarketConnector\plugins
    ```
 
    In EDMC you can get there with **File → Settings → Plugins → Open**.
+
+   Extracting creates the `EDMC-NVIR-Uplink` folder for you, so do not rename
+   the zip first — its name is the folder's name, and EDMC looks for that one.
+   You should end up with `plugins\EDMC-NVIR-Uplink\load.py`.
 
 2. Restart EDMC.
 3. Sign in at [nvir.vercel.app](https://nvir.vercel.app) with Discord, open

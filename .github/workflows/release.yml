@@ -66,16 +66,25 @@ jobs:
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
-      # The folder inside the archive is the whole point of building one.
-      # GitHub's own "Source code (zip)" unpacks to EDMC-NVIR-Uplink-main, and a
-      # member who drags that in gets a plugin folder EDMC does not recognise —
-      # the commonest bad install there is, and why the diagnostics report
-      # prints the folder name.
+      # Flat: the archive root *is* the plugin folder's contents, with load.py
+      # at the top and no wrapping directory.
+      #
+      # That is what makes extracting work without instructions. Windows
+      # Explorer's "Extract All" defaults its destination to a folder named
+      # after the archive, so extracting into EDMC's plugins folder produces
+      # plugins\EDMC-NVIR-Uplink\load.py and EDMC finds it. An archive that
+      # carried its own folder would land one level deeper than that, and
+      # GitHub's own source zip is worse again — EDMC-NVIR-Uplink-main, which
+      # is the commonest bad install there is.
+      #
+      # The asset filename therefore decides the plugin folder's name. Renaming
+      # it — to add the version, say — renames the folder a member ends up
+      # with, and EDMC stops finding the plugin. It is a filename with a job.
       - name: Build the plugin archive
         if: steps.check.outputs.exists == 'false'
         run: |
           set -eu
-          staging="$(mktemp -d)/EDMC-NVIR-Uplink"
+          staging="$(mktemp -d)"
           mkdir -p "$staging/nvir"
 
           cp load.py README.md "$staging/"
@@ -85,7 +94,7 @@ jobs:
           # checkout is no use to a member and invites a double-click.
           rm -f "$staging/nvir/link-to-edmc.bat"
 
-          ( cd "$(dirname "$staging")" && zip -qr "$GITHUB_WORKSPACE/EDMC-NVIR-Uplink.zip" EDMC-NVIR-Uplink )
+          ( cd "$staging" && zip -qr "$GITHUB_WORKSPACE/EDMC-NVIR-Uplink.zip" load.py README.md nvir )
           unzip -l EDMC-NVIR-Uplink.zip
 
       - name: Publish
@@ -97,6 +106,8 @@ jobs:
             EDMC-NVIR-Uplink.zip \
             --title "NVIR Uplink ${{ steps.plugin.outputs.version }}" \
             --generate-notes \
-            --notes "Unzip \`EDMC-NVIR-Uplink\` straight into EDMC's plugin folder — **File → Settings → Plugins → Open** — with no extra folder around it, then restart EDMC.
+            --notes "Extract \`EDMC-NVIR-Uplink.zip\` **into** EDMC's plugin folder — **File → Settings → Plugins → Open** — and let it create the \`EDMC-NVIR-Uplink\` folder for you. Then restart EDMC.
+
+          Do not rename the archive before extracting: its name becomes the plugin folder's name, and EDMC looks for that one.
 
           Setup and troubleshooting: [README](https://github.com/${{ github.repository }}#readme)."
