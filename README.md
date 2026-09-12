@@ -17,14 +17,16 @@ own settings page.
 
 1. Install [EDMC](https://github.com/EDCD/EDMarketConnector/releases/latest) if
    you do not have it, and start it once.
-2. Extract the zip **into** EDMC's plugin folder —
-   **File → Settings → Plugins → Open**. Extracting creates the
-   `EDMC-NVIR-Uplink` folder for you, so do not rename the zip first.
+2. In EDMC, open **File → Settings → Plugins** and press **Open**. Extract the
+   zip into the folder that opens — it creates the `EDMC-NVIR-Uplink` folder for
+   you, so do not rename the zip first.
 3. Restart EDMC.
-4. Generate a token on your [NVIR profile](https://nvir.vercel.app/profile#uplink)
-   and paste it into **File → Settings → NVIR Uplink**.
-5. Start the game. Nothing is sent while Elite is closed, so your commander is
-   verified at your next login rather than the moment you paste the token.
+4. Generate a token on your
+   [NVIR profile](https://nvir.vercel.app/profile#uplink), then paste it into
+   EDMC under **File → Settings → NVIR Uplink**.
+5. Start the game. The plugin sees nothing while Elite is closed, so a fresh
+   launch is what completes the setup — you are verified and your totals sent as
+   you log in.
 
 Requires EDMC 6.x. There is no URL to configure — the plugin already knows where
 to send things.
