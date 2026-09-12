@@ -1,0 +1,102 @@
+name: Release
+
+# Cutting a release is bumping PLUGIN_VERSION. Nothing else to remember, and
+# nothing to forget in a different order.
+#
+# Every push to main is checked, but only a version that has no tag yet
+# produces anything — the other pushes finish in a couple of seconds having
+# decided there is nothing to do. That is deliberate: the alternative is a
+# separate "please release now" step that gets skipped, and members find out a
+# fix exists when someone mentions it in Discord.
+#
+# version.py reads PLUGIN_VERSION off main directly, so an update is announced
+# in the plugin the moment the bump lands. This makes the download that
+# announcement points at exist as well.
+
+on:
+  push:
+    branches: [main]
+  # For re-running a release whose upload failed, without an empty commit.
+  workflow_dispatch:
+
+# Only what creating a release needs.
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read the version the plugin reports
+        id: plugin
+        run: |
+          version="$(sed -n 's/^PLUGIN_VERSION = "\(.*\)"$/\1/p' nvir/config.py)"
+          if [ -z "$version" ]; then
+            echo "::error file=nvir/config.py::PLUGIN_VERSION not found."
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+          echo "Plugin reports $version"
+
+          # A release build is meant to ship with the debug tooling off. Not
+          # fatal — it is a squadron plugin and a debug build still works — but
+          # it ships a Dev Mode section to every member, so say so where
+          # somebody will read it.
+          if grep -q '^DEBUG = True' nvir/config.py; then
+            echo "::warning file=nvir/config.py::DEBUG is True, so this release carries the debug tooling."
+          fi
+
+      - name: Has this version already been released?
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "${{ steps.plugin.outputs.tag }}" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "${{ steps.plugin.outputs.tag }} is already released — nothing to do."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # The folder inside the archive is the whole point of building one.
+      # GitHub's own "Source code (zip)" unpacks to EDMC-NVIR-Uplink-main, and a
+      # member who drags that in gets a plugin folder EDMC does not recognise —
+      # the commonest bad install there is, and why the diagnostics report
+      # prints the folder name.
+      - name: Build the plugin archive
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          set -eu
+          staging="$(mktemp -d)/EDMC-NVIR-Uplink"
+          mkdir -p "$staging/nvir"
+
+          cp load.py README.md "$staging/"
+          cp nvir/*.py nvir/README.md "$staging/nvir/"
+
+          # Developer tooling. A junction script pointed at somebody else's
+          # checkout is no use to a member and invites a double-click.
+          rm -f "$staging/nvir/link-to-edmc.bat"
+
+          ( cd "$(dirname "$staging")" && zip -qr "$GITHUB_WORKSPACE/EDMC-NVIR-Uplink.zip" EDMC-NVIR-Uplink )
+          unzip -l EDMC-NVIR-Uplink.zip
+
+      - name: Publish
+        if: steps.check.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.plugin.outputs.tag }}" \
+            EDMC-NVIR-Uplink.zip \
+            --title "NVIR Uplink ${{ steps.plugin.outputs.version }}" \
+            --generate-notes \
+            --notes "Unzip \`EDMC-NVIR-Uplink\` straight into EDMC's plugin folder — **File → Settings → Plugins → Open** — with no extra folder around it, then restart EDMC.
+
+          Setup and troubleshooting: [README](https://github.com/${{ github.repository }}#readme)."
