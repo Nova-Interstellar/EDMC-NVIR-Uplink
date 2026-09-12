@@ -8,44 +8,29 @@ It reads your game journal, the same file EDSM and Inara already read, and
 nothing else on your machine. What it is allowed to send is yours to choose, and
 lives on your NVIR profile.
 
-### [⬇ Download EDMC-NVIR-Uplink.zip](https://github.com/Nova-Interstellar/EDMC-NVIR-Uplink/releases/latest/download/EDMC-NVIR-Uplink.zip)
+### [Download EDMC-NVIR-Uplink.zip](https://github.com/Nova-Interstellar/EDMC-NVIR-Uplink/releases/latest/download/EDMC-NVIR-Uplink.zip)
 
-Always the newest release. The plugin tells you when a new one exists, on its
-settings page.
+Always the newest release. The plugin tells you when a newer one exists, on its
+own settings page.
 
 ## Install
 
-1. Download [**EDMC-NVIR-Uplink.zip**](https://github.com/Nova-Interstellar/EDMC-NVIR-Uplink/releases/latest/download/EDMC-NVIR-Uplink.zip) and extract it **into** EDMC's plugin
-   folder:
+1. Install [EDMC](https://github.com/EDCD/EDMarketConnector/releases/latest) if
+   you do not have it, and start it once.
+2. Extract the zip **into** EDMC's plugin folder —
+   **File → Settings → Plugins → Open**. Extracting creates the
+   `EDMC-NVIR-Uplink` folder for you, so do not rename the zip first.
+3. Restart EDMC.
+4. Generate a token on your [NVIR profile](https://nvir.vercel.app/profile#uplink)
+   and paste it into **File → Settings → NVIR Uplink**.
+5. Start the game. Nothing is sent while Elite is closed, so your commander is
+   verified at your next login rather than the moment you paste the token.
 
-   ```
-   %LOCALAPPDATA%\EDMarketConnector\plugins
-   ```
+Requires EDMC 6.x. There is no URL to configure — the plugin already knows where
+to send things.
 
-   In EDMC you can get there with **File → Settings → Plugins → Open**.
-
-   Extracting creates the `EDMC-NVIR-Uplink` folder for you, so do not rename
-   the zip first — its name is the folder's name, and EDMC looks for that one.
-   You should end up with `plugins\EDMC-NVIR-Uplink\load.py`.
-
-2. Restart EDMC.
-3. Sign in at [nvir.vercel.app](https://nvir.vercel.app) with Discord, open
-   your profile, and generate an uplink token.
-4. Open **File → Settings → NVIR Uplink** and paste it in. The settings page
-   also links straight to your profile if you need to get back there.
-5. **Start the game.** The plugin sees nothing at all while Elite is closed, so
-   your commander is verified and your Hall of Fame totals sent at your next
-   login — not the moment you paste the token. If the game was already running
-   when you pasted it, that is fine and nothing is needed.
-
-There is no URL to configure — the plugin already knows where to send things.
-
-The token is yours alone. It is shown once and stored only as a hash, so nobody
-— including an officer — can read it back; if you lose it, generate another and
-the old one stops working. You need to be a member of the squadron Discord to
-have a profile at all.
-
-Requires EDMC 6.x.
+**[Full guide, with what every setting does](https://nvir.vercel.app/tools/nvir-uplink)** — kept in one place, so
+this file and the site cannot drift into disagreeing with each other.
 
 ## Settings
 
